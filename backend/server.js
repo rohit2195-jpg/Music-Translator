@@ -84,6 +84,7 @@ app.post('/lyrics/lrc_synced_native', async (req, res) => {
 
   try {
     // trying to find lyrics for each artist name, returning first one that isnt null
+    // new comment
     for (let i = 0 ; i < req.body.artists.length; i++) {
       const duration_sec = Math.floor(req.body.duration_ms / 1000);
 
