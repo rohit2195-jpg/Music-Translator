@@ -1,0 +1,24 @@
+.lyrics-window {
+  height: 120px;
+  overflow-y: auto;   
+  overflow-x: hidden;
+}
+
+
+.line,
+.active-line {
+  margin: 8px 0;
+  text-align: center;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.line {
+  color: #aaa;
+  opacity: 0.4;
+}
+
+.active-line {
+  color: #1db954;
+  font-weight: bold;
+  opacity: 1;
+}
