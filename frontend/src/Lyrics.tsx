@@ -22,7 +22,7 @@ function Lyrics({track, position}) {
     const [lyrics, setLyrics] = useState(null);
     const [plainLyrics, setPlainLyrics] = useState(null);
 
-    const[language, setLanguage] = useState('');
+    const[language, setLanguage] = useState('None');
 
     const [translatedLyrics, setTranslatedLyrics] = useState(null);
     const [translatedLyricsLRC, setTranslatedLyricsLRC] = useState('');
@@ -84,6 +84,7 @@ function Lyrics({track, position}) {
 
         async function getTranslatedLyrics() {
             console.log(lyrics);
+            if (language=='None') return;
             const response = await fetch('/lyrics/lrc_synced_translate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -96,8 +97,9 @@ function Lyrics({track, position}) {
 
             const json = await response.json();
             console.log('translated:', json.lyrics);
-            setTranslatedLyricsLRC(mergeTimestampsWithTranslatedText(lyrics, json.lyrics))
-            console.log(mergeTimestampsWithTranslatedText(lyrics, json.lyrics))
+            setTranslatedLyricsLRC(json.lyrics)
+            //setTranslatedLyricsLRC(mergeTimestampsWithTranslatedText(lyrics, json.lyrics))
+            //console.log(mergeTimestampsWithTranslatedText(lyrics, json.lyrics))
         }
 
         getTranslatedLyrics();
@@ -114,37 +116,43 @@ function Lyrics({track, position}) {
     
 
     return (
-                <div className="lyrics-window">
-        {/* Language dropdown is always visible */}
-        <select value={language} onChange={handleLanguageChange}>
-            <option value="Arabic">Arabic</option>
-            <option value="en">English</option>
-            <option value="hi">Hindi</option>
-            <option value="es">Spanish</option>
-            <option value="French">French</option>
-        </select>
+  <div className="lyrics-window">
+    {/* Language dropdown */}
+    <select value={language} onChange={handleLanguageChange} disabled={!lyrics} >
+      <option value="None">None</option>
+      <option value="en">English</option>
+      <option value="hi">Hindi</option>
+      <option value="es">Spanish</option>
+    </select>
 
-        {/* Lyrics area */}
-        {(!lyrics) ? (
-            <div>Loading lyrics...</div>
-        ) : (
-            <Lrc
-            lrc={lyrics}
-            currentMillisecond={position}
-            lineRenderer={({ line, active }) => (
-                <p className={active ? 'active-line' : 'line'}>
-                {line.content}
-                {translatedLyrics}
-                </p>
-            )}
-            />
-
-
-            
+    {/* Lyrics area */}
+    {!lyrics ? (
+      <div>Loading lyrics...</div>
+    ) : language === "None" ? (
+      <Lrc
+        lrc={lyrics}
+        currentMillisecond={position}
+        lineRenderer={({ line, active }) => (
+          <p className={active ? "active-line" : "line"}>
+            {line.content}
+          </p>
         )}
-        </div>
-
-    );
+      />
+    ) : !translatedLyricsLRC ? (
+      <div>Translating lyrics...</div>
+    ) : (
+      <Lrc
+        lrc={translatedLyricsLRC}
+        currentMillisecond={position}
+        lineRenderer={({ line, active }) => (
+            <p className={active ? "active-line" : "line"}>
+            {line.content}
+            </p>
+        )}
+        />
+    )}
+  </div>
+);
 
 }
 

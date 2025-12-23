@@ -63,12 +63,35 @@ app.post('/lyrics/lrc_synced_translate', async (req, res) => {
   try {
     console.log("Fetching translated lyrics from backend");
     // can input array into translate text
-    const translated = await translateText(req.body.plainLyrics, 'en');
-    const cleaned = he.decode(translated);
 
-    console.log("cleaned translate lyrics", cleaned)
+    const lines = req.body.lyrics.split("\n");
 
-    res.json({ lyrics: cleaned });
+    const lyric_arr = [];
+    const timestamp_arr = [];
+
+    for (const line of lines) {
+      const match = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+      if (match) {
+        timestamp_arr.push(`[${match[1]}]`);
+        lyric_arr.push(match[2]);
+      }
+    }
+
+
+    //console.log(lyric_arr);
+    //console.log(timestamp_arr);
+
+    const translated = await translateText(lyric_arr, req.body.language);
+
+    const cleaned = translated.map(line => he.decode(line));
+
+    const combined = cleaned.map((line, i) => {
+      return `${timestamp_arr[i]} ${line}`;
+    });
+
+    //console.log(combined);
+
+    res.json({ lyrics: combined.join("\n") });;
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Translation failed' });
