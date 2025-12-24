@@ -3,8 +3,7 @@ import cors from 'cors';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import he from 'he';
-import pkg from '@google-cloud/translate';
-const { Translate } = pkg.v2;
+import { TranslationServiceClient } from '@google-cloud/translate';
 
 
 
@@ -23,6 +22,7 @@ const port = 3000;
 var spotify_client_id = process.env.SPOTIFY_CLIENT_ID
 var spotify_client_secret = process.env.SPOTIFY_CLIENT_SECRET
 
+
 console.log("hello");
 console.log(spotify_client_id);
 
@@ -35,18 +35,27 @@ app.use(cors());
 //app.use(express.json());
 
 
+const translationClient = new TranslationServiceClient();
 
+async function translateText(linesArray, target) {
+  const translationPromises = linesArray.map(async (line) => {
+    if (!line.trim()) return ''; 
 
-const translate = new Translate({
-  key: process.env.GOOGLE_API_KEY,
-});
+    const request = {
+      parent: `projects/${process.env.GOOGLE_CLOUD_PROJECT}/locations/${process.env.LOCATION}`,
+      contents: [line],
+      mimeType: 'text/plain',
+      targetLanguageCode: target,
+    };
 
+    const [response] = await translationClient.translateText(request);
+    return response.translations[0].translatedText;
+  });
 
-async function translateText(text, target) {
-  const [translation] = await translate.translate(text, target);
-  return translation;
+  const translatedLines = await Promise.all(translationPromises);
+
+  return translatedLines;
 }
-
 
 
 app.get('/', (req, res) => {
@@ -84,6 +93,7 @@ app.post('/lyrics/lrc_synced_translate', async (req, res) => {
     const translated = await translateText(lyric_arr, req.body.language);
 
     const cleaned = translated.map(line => he.decode(line));
+    console.log(cleaned);
 
     const combined = cleaned.map((line, i) => {
       return `${timestamp_arr[i]} ${line}`;
@@ -108,6 +118,7 @@ app.post('/lyrics/lrc_synced_native', async (req, res) => {
   try {
     // trying to find lyrics for each artist name, returning first one that isnt null
     // new comment
+    console.log(req.body);
     for (let i = 0 ; i < req.body.artists.length; i++) {
       const duration_sec = Math.floor(req.body.duration_ms / 1000);
 
@@ -121,7 +132,7 @@ app.post('/lyrics/lrc_synced_native', async (req, res) => {
       const response = await fetch(url.toString());
       const data = await response.json();
 
-      //console.log("LRCLIB response:", data);
+      console.log("LRCLIB response:", data);
 
       if (data.syncedLyrics != null) {
         return res.json({ lyrics: data.syncedLyrics, plainLyrics: data.plainLyrics });
