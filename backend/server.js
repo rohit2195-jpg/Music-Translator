@@ -4,7 +4,7 @@ import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import he from 'he';
 import { TranslationServiceClient } from '@google-cloud/translate';
-
+import { GoogleGenAI } from '@google/genai';
 
 
 dotenv.config();
@@ -22,6 +22,8 @@ const port = 3000;
 var spotify_client_id = process.env.SPOTIFY_CLIENT_ID
 var spotify_client_secret = process.env.SPOTIFY_CLIENT_SECRET
 
+const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY)
+
 
 console.log("hello");
 console.log(spotify_client_id);
@@ -38,23 +40,37 @@ app.use(cors());
 const translationClient = new TranslationServiceClient();
 
 async function translateText(linesArray, target) {
-  const translationPromises = linesArray.map(async (line) => {
-    if (!line.trim()) return ''; 
 
-    const request = {
-      parent: `projects/${process.env.GOOGLE_CLOUD_PROJECT}/locations/${process.env.LOCATION}`,
-      contents: [line],
-      mimeType: 'text/plain',
-      targetLanguageCode: target,
-    };
+  let fullstr = "";
+  for (var i = 0 ; i < linesArray.length; i++) {
+    fullstr += linesArray[i] + "\n";
+  }
 
-    const [response] = await translationClient.translateText(request);
-    return response.translations[0].translatedText;
-  });
+  const prompt = `
+    You are a professional song lyrics translator.
 
-  const translatedLines = await Promise.all(translationPromises);
+    Translate the following song lyrics into ${target}.
+    Preserve meaning, emotion, and artistic intent over literal word-for-word translation.
+    Use natural, fluent ${target} that sounds appropriate for song lyrics.
+    If a line is empty, output an empty line in the same position.
+    The number of output lines MUST exactly match the number of input lines.
 
-  return translatedLines;
+    Lyrics:
+    ${fullstr}
+  `;
+
+  const response = await genAI.models.generateContent({
+    model: 'gemini-2.5-flash', 
+    contents: prompt,
+    });
+  const text = response.text;
+
+  const lines = text.split("\n");
+
+  return lines
+  
+
+
 }
 
 
