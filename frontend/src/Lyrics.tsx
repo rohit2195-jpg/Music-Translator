@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Lrc, MultipleLrc} from 'react-lrc';
 import "./Lyrics.css";
+import ToggleButton from './ToggleComp';
 
 
 const track = {
@@ -19,13 +20,19 @@ const track = {
 
 function Lyrics({track, position}) {
 
-    const [lyrics, setLyrics] = useState(null);
-    const [plainLyrics, setPlainLyrics] = useState(null);
+    const [lyrics, setLyrics] = useState([]);
+    const [plainLyrics, setPlainLyrics] = useState([]);
+    const [index_lyrics, setIndexLyrics] = useState(0);
 
     const[language, setLanguage] = useState('None');
 
     const [translatedLyrics, setTranslatedLyrics] = useState(null);
     const [translatedLyricsLRC, setTranslatedLyricsLRC] = useState('');
+
+
+    const [isStandard, setIsStandard] = useState(true);
+
+
 
 
     useEffect(() => {
@@ -49,34 +56,12 @@ function Lyrics({track, position}) {
     }, [track?.id]); 
 
 
-    function mergeTimestampsWithTranslatedText(originalLrc, translatedText) {
-        const lrcLines = originalLrc.split('\n').map(line => line.trim()).filter(Boolean);
-
-        const translatedLines = translatedText.split('\n').map(line => line.trim());
-
-        const result = [];
-
-        for (let i = 0; i < lrcLines.length; i++) {
-            const lrcLine = lrcLines[i];
-            const translatedLine = translatedLines[i] ?? '';
-
-            const timestampMatch = lrcLine.match(/^(\[[0-9:.]+\])/);
-
-            if (!timestampMatch) continue;
-
-            const timestamp = timestampMatch[1];
-            result.push(`${timestamp}${translatedLine}`);
-        }
-
-        return result.join('\n');
-    }
-
 
 
 
 
     useEffect(() => {
-        if (!lyrics) return;
+        if (lyrics.length == 0) return;
         if (!language) return;
 
 
@@ -85,13 +70,15 @@ function Lyrics({track, position}) {
         async function getTranslatedLyrics() {
             console.log(lyrics);
             if (language=='None') return;
+            setTranslatedLyricsLRC('');
             const response = await fetch('/lyrics/lrc_synced_translate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                lyrics,
-                plainLyrics,
+                lyric: lyrics[index_lyrics],
+                plainLyric: plainLyrics[index_lyrics],
                 language,
+                isStandard,
             }),
             });
 
@@ -103,7 +90,7 @@ function Lyrics({track, position}) {
         }
 
         getTranslatedLyrics();
-    }, [lyrics, language]);
+    }, [lyrics, language, isStandard]);
 
 
 
@@ -112,6 +99,7 @@ function Lyrics({track, position}) {
     const handleLanguageChange = (event) => {
         setLanguage(event.target.value);
     }
+
 
     
 
@@ -125,12 +113,34 @@ function Lyrics({track, position}) {
       <option value="es">Spanish</option>
     </select>
 
+    <button
+      disabled={language === 'None'}
+      onClick={() =>
+        setIndexLyrics(prev =>
+          Math.min(prev + 1, lyrics.length - 1)
+        )
+      }
+    >
+      Wrong lyrics
+    </button>
+
+
+
+
+    <ToggleButton
+      isStandard={isStandard}
+      setIsStandard={setIsStandard}
+      disabled = {language == 'None'}
+    />
+
+
+
     {/* Lyrics area */}
     {!lyrics ? (
       <div>Loading lyrics...</div>
     ) : language === "None" ? (
       <Lrc
-        lrc={lyrics}
+        lrc={lyrics[index_lyrics]}
         currentMillisecond={position}
         lineRenderer={({ line, active }) => (
           <p className={active ? "active-line" : "line"}>
