@@ -195,9 +195,11 @@ app.post('/lyrics/lrc_synced_native', async (req, res) => {
     var syncedLyrics_arr = []
     var plainLyrics_arr = []
     for (var i = 0 ; i < candidates.length; i++) {
-      syncedLyrics_arr.append(candidates[i].syncedLyrics)
-      plainLyrics_arr.append(candidates[i].syncedLyrics)
+      syncedLyrics_arr.push(candidates[i].syncedLyrics)
+      plainLyrics_arr.push(candidates[i].syncedLyrics)
     }
+
+    console.log("number of available lyrics", candidates.length);
 
     if (candidates.length) {
       return res.json({

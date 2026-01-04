@@ -49,6 +49,7 @@ function Lyrics({track, position}) {
         setLyrics(json.lyrics );
         setPlainLyrics(json.plainLyrics)
         console.log(json.plainLyrics)
+        setIndexLyrics(0);
         setTranslatedLyrics(null); 
     }
 
@@ -68,15 +69,14 @@ function Lyrics({track, position}) {
         
 
         async function getTranslatedLyrics() {
-            console.log(lyrics);
             if (language=='None') return;
             setTranslatedLyricsLRC('');
             const response = await fetch('/lyrics/lrc_synced_translate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                lyric: lyrics[index_lyrics],
-                plainLyric: plainLyrics[index_lyrics],
+                lyrics: lyrics[index_lyrics],
+                plainLyrics: plainLyrics[index_lyrics],
                 language,
                 isStandard,
             }),
@@ -86,11 +86,10 @@ function Lyrics({track, position}) {
             console.log('translated:', json.lyrics);
             setTranslatedLyricsLRC(json.lyrics)
             //setTranslatedLyricsLRC(mergeTimestampsWithTranslatedText(lyrics, json.lyrics))
-            //console.log(mergeTimestampsWithTranslatedText(lyrics, json.lyrics))
         }
 
         getTranslatedLyrics();
-    }, [lyrics, language, isStandard]);
+    }, [lyrics, language, isStandard, index_lyrics]);
 
 
 
@@ -98,6 +97,10 @@ function Lyrics({track, position}) {
 
     const handleLanguageChange = (event) => {
         setLanguage(event.target.value);
+    }
+
+    if (!lyrics[index_lyrics]) {
+      return <div>Loading lyrics…</div>;
     }
 
 
@@ -114,15 +117,18 @@ function Lyrics({track, position}) {
     </select>
 
     <button
-      disabled={language === 'None'}
+      disabled={index_lyrics >= lyrics.length}
       onClick={() =>
         setIndexLyrics(prev =>
-          Math.min(prev + 1, lyrics.length - 1)
+        (prev + 1) % lyrics.length
         )
+
       }
     >
       Wrong lyrics
     </button>
+
+    Lyric number : {index_lyrics}
 
 
 
@@ -133,10 +139,12 @@ function Lyrics({track, position}) {
       disabled = {language == 'None'}
     />
 
+    
+
 
 
     {/* Lyrics area */}
-    {!lyrics ? (
+    {lyrics.length === 0 ? (
       <div>Loading lyrics...</div>
     ) : language === "None" ? (
       <Lrc
