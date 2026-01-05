@@ -1,24 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { Lrc, MultipleLrc} from 'react-lrc';
+import { useState, useEffect } from 'react';
+import { Lrc} from 'react-lrc';
 import "./Lyrics.css";
 import ToggleButton from './ToggleComp';
 
+interface TrackImage {
+  url: string;
+}
 
-const track = {
-    name: "",
-    album: {
-        images: [
-            { url: "" }
-        ]
-    },
-    artists: [
-        { name: "" }
-    ]
+interface TrackAlbum {
+  images: TrackImage[];
+}
+
+interface TrackArtist {
+  name: string;
+}
+
+interface Track {
+  id: string;
+  name: string;
+  album: TrackAlbum;
+  artists: TrackArtist[];
+}
+
+interface MyProp {
+  track: Track;
+  position: number;
 }
 
 
-
-function Lyrics({track, position}) {
+function Lyrics({track, position}: MyProp) {
 
     const [lyrics, setLyrics] = useState([]);
     const [plainLyrics, setPlainLyrics] = useState([]);
@@ -26,7 +36,6 @@ function Lyrics({track, position}) {
 
     const[language, setLanguage] = useState('None');
 
-    const [translatedLyrics, setTranslatedLyrics] = useState(null);
     const [translatedLyricsLRC, setTranslatedLyricsLRC] = useState('');
 
 
@@ -48,9 +57,7 @@ function Lyrics({track, position}) {
         const json = await response.json();
         setLyrics(json.lyrics );
         setPlainLyrics(json.plainLyrics)
-        console.log(json.plainLyrics)
         setIndexLyrics(0);
-        setTranslatedLyrics(null); 
     }
 
         getNativeLyricsSynced();
@@ -83,7 +90,7 @@ function Lyrics({track, position}) {
             });
 
             const json = await response.json();
-            console.log('translated:', json.lyrics);
+            //console.log('translated:', json.lyrics);
             setTranslatedLyricsLRC(json.lyrics)
             //setTranslatedLyricsLRC(mergeTimestampsWithTranslatedText(lyrics, json.lyrics))
         }
@@ -95,7 +102,7 @@ function Lyrics({track, position}) {
 
    
 
-    const handleLanguageChange = (event) => {
+    const handleLanguageChange = (event:any) => {
         setLanguage(event.target.value);
     }
 
@@ -107,28 +114,38 @@ function Lyrics({track, position}) {
     
 
     return (
-  <div className="lyrics-window">
+  <div className="lyrics-container">
     {/* Language dropdown */}
-    <select value={language} onChange={handleLanguageChange} disabled={!lyrics} >
+
+    <div className='lyrics-header'>
+
+      Translate to:
+   
+    <select value={language} onChange={(e) => handleLanguageChange(e)} disabled={lyrics.length === 0 }>
       <option value="None">None</option>
       <option value="en">English</option>
       <option value="hi">Hindi</option>
       <option value="es">Spanish</option>
     </select>
 
-    <button
-      disabled={index_lyrics >= lyrics.length}
-      onClick={() =>
-        setIndexLyrics(prev =>
-        (prev + 1) % lyrics.length
-        )
+      <br></br>
 
-      }
-    >
-      Wrong lyrics
-    </button>
+    <div className='refresh-lyrics'>
 
-    Lyric number : {index_lyrics}
+   
+      <button
+        disabled={index_lyrics >= lyrics.length}
+        onClick={() =>
+          setIndexLyrics(prev =>
+          (prev + 1) % lyrics.length
+          )
+
+        }
+      >
+        Wrong lyrics
+      </button>
+     </div>
+
 
 
 
@@ -139,11 +156,14 @@ function Lyrics({track, position}) {
       disabled = {language == 'None'}
     />
 
+
+ </div>
     
 
 
 
     {/* Lyrics area */}
+    <div className='lyrics-window' >
     {lyrics.length === 0 ? (
       <div>Loading lyrics...</div>
     ) : language === "None" ? (
@@ -169,6 +189,7 @@ function Lyrics({track, position}) {
         )}
         />
     )}
+    </div>
   </div>
 );
 

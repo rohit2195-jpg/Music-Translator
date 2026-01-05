@@ -9,11 +9,11 @@ export default defineConfig({
     port: 5174,
     proxy: {
       "/auth": {
-        target: "http://127.0.0.1:3000",
+        target: "https://7sjjoysyp7azjgbsrmliwjkhnq0yuiue.lambda-url.us-east-2.on.aws/",
         changeOrigin: true,
       },
       "/lyrics": {
-        target: "http://127.0.0.1:3000",
+        target: "https://7sjjoysyp7azjgbsrmliwjkhnq0yuiue.lambda-url.us-east-2.on.aws/",
         changeOrigin: true,
       }
     },

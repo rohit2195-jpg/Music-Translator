@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import Lyrics from "./Lyrics.tsx";
+import { CiPlay1, CiPause1 } from "react-icons/ci";
+import { CgPlayTrackNext,CgPlayTrackPrev } from "react-icons/cg";
+import { FaVolumeUp, FaVolumeDown } from "react-icons/fa";
+
+import './WebPlayback.css';
+import Login from './Login.tsx';
 
 const track = {
     name: "",
@@ -10,27 +16,44 @@ const track = {
     },
     artists: [
         { name: "" }
-    ]
+    ],
+    id:"",
+
+}
+
+interface MyProp {
+    token: string;
+}
+
+declare global {
+  interface Window {
+    onSpotifyWebPlaybackSDKReady: () => void;
+    Spotify: any;
+  }
 }
 
 
+function WebPlayback(props: MyProp) {
 
-function WebPlayback(props) {
-
-    const [player, setPlayer] = useState(undefined);
+    const [player, setPlayer] = useState<any>(undefined);
     const [is_paused, setPaused] = useState(false);
     const [is_active, setActive] = useState(false);
-    const [current_track, setTrack] = useState(track);
+    const [current_track, setTrack] = useState<any>(track);
     const [volume, setVolume] = useState(0);
 
-    const [currentState, setCurrentState] = useState(undefined);
+    const [currentState, setCurrentState] = useState<any>(undefined);
 
-    const [position, setPosition] = useState(0); // in seconds
-    const [lastUpdateTime, setLastUpdateTime] = useState(null);
+    const [position, setPosition] = useState(0); // in milliseconds
+    const lastUpdateRef = React.useRef<any>(null);
+
+    
+
 
 
 
     const [authenticate , setAuthenticate] = useState(true);
+
+    var progressPercent = currentState ? (position / (currentState["track_window"]["current_track"]["duration_ms"] ) * 100 ): 0;
 
 
 
@@ -47,13 +70,13 @@ function WebPlayback(props) {
 
             const player = new window.Spotify.Player({
                 name: 'Web Playback SDK',
-                getOAuthToken: cb => { cb(props.token); },
+                getOAuthToken: (cb: any) => { cb(props.token); },
                 volume: 0.5
             });
 
             setPlayer(player);
 
-            player.addListener('ready', ({ device_id }) => {
+            player.addListener('ready', ({ device_id }:any) => {
                 console.log('Ready with Device ID', device_id);
                 fetch('https://api.spotify.com/v1/me/player', {
                     method: 'PUT',
@@ -71,7 +94,7 @@ function WebPlayback(props) {
             });
 
             
-            player.addListener('not_ready', ({ device_id }) => {
+            player.addListener('not_ready', ({ device_id }: any) => {
                 console.log('Device ID has gone offline', device_id);
             });
 
@@ -81,29 +104,28 @@ function WebPlayback(props) {
             player.setName("Translator Web Service")
 
 
-            player.addListener('player_state_changed', (state) => {
-                if (!state) {
-                    setActive(false);
-                    return;
-                }
+            player.addListener("player_state_changed", (state : any) => {
+                if (!state) return;
 
                 setActive(true);
                 setPaused(state.paused);
                 setTrack(state.track_window.current_track);
-
                 setCurrentState(state);
 
-                setPosition(state.position);
-                setLastUpdateTime(Date.now());
+                setPosition(state.position); // ms
+                console.log(state.track_window.current_track);
+                console.log(state.position);
+                lastUpdateRef.current = Date.now();
             });
 
 
 
-            player.getVolume().then(volume => {
+
+            player.getVolume().then((volume: React.SetStateAction<number>) => {
                 setVolume(volume);
             })
 
-            player.on('authentication_error', ({ message }) => {
+            player.on('authentication_error', ({ message }: any) => {
                 console.error('Failed to authenticate', message);
                 setAuthenticate(false);
             });
@@ -116,17 +138,29 @@ function WebPlayback(props) {
 
 
     useEffect(() => {
-        if (is_paused || lastUpdateTime === null) return;
+        if (is_paused) return;
 
-        const intervalId = setInterval(() => {
-            setPosition(prev =>
-                prev + (Date.now() - lastUpdateTime)
-            );
-            setLastUpdateTime(Date.now());
-        }, 1000);
+        const interval = setInterval(() => {
+            if (!lastUpdateRef.current) return;
 
-        return () => clearInterval(intervalId);
-    }, [is_paused, lastUpdateTime]);
+            const now = Date.now();
+            const elapsed = now - lastUpdateRef.current;
+
+            setPosition(prev => prev + elapsed);
+            lastUpdateRef.current = now;
+        }, 500);
+
+        return () => clearInterval(interval);
+    }, [is_paused]);
+
+
+    // ask user to reauthenticate if not logged in
+
+    if (!player || is_active == false || authenticate == false)  {
+        return (<div>
+            <Login></Login> Please login again!
+            </div>)
+    }
 
 
 
@@ -136,10 +170,7 @@ function WebPlayback(props) {
         <div className="container">
             <div className="main-wrapper">
                 
-                {authenticate == false ? <a className="btn-spotify" href="/auth/login" >
-                    Reauthenticate with Spotify 
-                </a> : <p> </p>}
-
+            
 
                 {current_track?.album?.images?.[0]?.url?.trim() || null ? (
                 <img
@@ -148,6 +179,10 @@ function WebPlayback(props) {
                     alt="Album art"
                 />
                 ) : null}
+
+
+                
+
 
 
 
@@ -161,12 +196,46 @@ function WebPlayback(props) {
                                   }</div>
                     <div className= "currentPos">
                         {Math.floor(position / 1000)}
+
+
                     </div>
+
+
+                    
+
                 </div>
 
+                <div className="progress-container">
+                    {Math.floor(position / 1000  / 60) }:{String(Math.floor((position / 1000) % 60)).padStart(2, '0')}
+
+                    <div
+                        className="progress-bar"
+                        onClick={(e) => {
+                            console.log('changing position')
+                            if (!player || !currentState) return;
+
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const clickX = e.clientX - rect.left;
+                            const newPosition = (clickX / rect.width) * currentState.track_window.current_track.duration_ms;
+
+                            player.seek(newPosition);
+                        }}
+                        >
+                        <div
+                            className="progress-bar__fill"
+                            style={{ width: `${progressPercent}%` }}
+                        />
+                    </div>
+
+                </div>
+
+
+
+
                 <button className="btn-spotify" disabled={!is_active} onClick={() => {  player && player.previousTrack() }} >
-                    &lt;&lt;
+                    <CgPlayTrackPrev></CgPlayTrackPrev>
                 </button>
+
 
                 <button className="btn-spotify" disabled={!is_active} onClick={() => {
                     if (!player) return;
@@ -187,33 +256,19 @@ function WebPlayback(props) {
                         });
                     }
                 }}>
-                    { is_paused ? "PLAY" : "PAUSE" }
+                    { is_paused ? <CiPlay1></CiPlay1> : <CiPause1></CiPause1>}
                 </button>
 
                 <button className="btn-spotify" disabled={!is_active} onClick={() => { player && player.nextTrack() }} >
-                    &gt;&gt;
+                    <CgPlayTrackNext></CgPlayTrackNext>
                 </button>
+
+
+                
 
                  
 
                 <div  className='volume'>
-                    <button disabled={!is_active} className='vol-up' onClick={() => {
-                        var new_volume = volume + 0.1;
-                        console.log(new_volume)
-                        if (player) {
-                            if (new_volume > 1) {
-                                player.setVolume(1);
-                                setVolume(1)
-                            }
-                            else {
-                                player.setVolume(new_volume);
-                                setVolume(new_volume)
-                            }
-                        }
-
-                        
-                    }} > up </button> 
-
 
 
                     <button disabled={!is_active} className='vol-down' onClick={() => {
@@ -232,7 +287,29 @@ function WebPlayback(props) {
 
                         }
                         
-                    }} > down </button>        
+                    }} > <FaVolumeDown></FaVolumeDown> </button>   
+
+
+                    <button disabled={!is_active} className='vol-up' onClick={() => {
+                        var new_volume = volume + 0.1;
+                        console.log(new_volume)
+                        if (player) {
+                            if (new_volume > 1) {
+                                player.setVolume(1);
+                                setVolume(1)
+                            }
+                            else {
+                                player.setVolume(new_volume);
+                                setVolume(new_volume)
+                            }
+                        }
+
+                        
+                    }} > <FaVolumeUp></FaVolumeUp> </button> 
+
+
+
+                         
                 </div>
 
 
@@ -242,9 +319,8 @@ function WebPlayback(props) {
                 <Lyrics track={current_track} position={position} />
             )}
 
-            
+            <p>Welcome</p>
 
-            <p>Signed in and have token</p>
         </div>
      </>
 )

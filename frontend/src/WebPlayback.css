@@ -1,0 +1,37 @@
+.progress-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.time {
+  font-size: 12px;
+  color: #b3b3b3;
+  width: 40px;
+  text-align: center;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: #535353;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.now-playing__cover {
+  width: 200px;
+  height: 200px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+
+.progress-bar__fill {
+  height: 100%;
+  background: #1db954;
+  width: 0%;
+  transition: width 0.25s linear;
+}

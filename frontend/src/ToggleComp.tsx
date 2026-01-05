@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
 
-const ToggleButton = ({isStandard, setIsStandard, disabled}) => {
+interface MyProp {
+  isStandard: boolean;
+  setIsStandard: any;
+  disabled: boolean;
+}
+
+
+const ToggleButton = ({isStandard, setIsStandard, disabled}: MyProp) => {
 
   const handleToggle = () => {
     setIsStandard(!isStandard);
