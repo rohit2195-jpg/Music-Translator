@@ -9,11 +9,11 @@ export default defineConfig({
     port: 5174,
     proxy: {
       "/auth": {
-        target: "http://127.0.0.1:3000",
+        target: "https://music-translator.onrender.com",
         changeOrigin: true,
       },
       "/lyrics": {
-        target: "http://127.0.0.1:3000",
+        target: "https://music-translator.onrender.com",
         changeOrigin: true,
       }
     },

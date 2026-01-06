@@ -48,7 +48,7 @@ function Lyrics({track, position}: MyProp) {
   if (!track?.name) return;
 
   async function getNativeLyricsSynced() {
-        const response = await fetch('/lyrics/lrc_synced_native', {
+        const response = await fetch('https://music-translator.onrender.com/lyrics/lrc_synced_native', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(track),
@@ -78,7 +78,7 @@ function Lyrics({track, position}: MyProp) {
         async function getTranslatedLyrics() {
             if (language=='None') return;
             setTranslatedLyricsLRC('');
-            const response = await fetch('/lyrics/lrc_synced_translate', {
+            const response = await fetch('https://music-translator.onrender.com/lyrics/lrc_synced_translate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

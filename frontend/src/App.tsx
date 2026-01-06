@@ -10,7 +10,7 @@ function App() {
   useEffect(() => {
 
     async function getToken() {
-      const response = await fetch('/auth/token');
+      const response = await fetch('https://music-translator.onrender.com/auth/token');
       const json = await response.json();
       setToken(json.access_token);
       console.log(json.access_token);
