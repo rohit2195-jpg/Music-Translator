@@ -1,37 +1,167 @@
+/* Retro base */
+* {
+  box-sizing: border-box;
+  font-family: "Courier New", Courier, monospace;
+}
+
+body {
+  background: #f4f1ea;
+  color: #222;
+}
+
+/* Layout */
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+}
+
+.main-wrapper {
+  width: 360px;
+  padding: 16px;
+  background: #f7f7f5;
+  border: 2px solid #444;
+  box-shadow: 4px 4px 0 #000;
+}
+
+
+.now-playing__cover {
+  width: 200px;
+  height : 200px;
+  object-fit: contain; /* important */
+  margin-bottom: 12px;
+  background: #ccc;
+}
+
+
+/* Track info */
+.now-playing__side {
+  border: 2px inset #aaa;
+  padding: 8px;
+  background: #f8f6f1;
+  margin-bottom: 12px;
+}
+
+.now-playing__name {
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.now-playing__artist {
+  font-size: 12px;
+  color: #333;
+}
+
+.currentPos {
+  font-size: 11px;
+  margin-top: 4px;
+  color: #555;
+}
+
+/* Progress */
 .progress-container {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  margin-top: 8px;
-}
-
-.time {
-  font-size: 12px;
-  color: #b3b3b3;
-  width: 40px;
-  text-align: center;
+  gap: 6px;
+  font-size: 11px;
+  margin-bottom: 12px;
 }
 
 .progress-bar {
   flex: 1;
-  height: 8px;
-  background: #535353;
-  border-radius: 2px;
-  overflow: hidden;
+  height: 10px;
+  border: 2px inset #aaa;
+  background: #fff;
+  cursor: pointer;
 }
-
-.now-playing__cover {
-  width: 200px;
-  height: 200px;
-  border-radius: 10px;
-  object-fit: cover;
-}
-
 
 .progress-bar__fill {
   height: 100%;
-  background: #1db954;
+  background: repeating-linear-gradient(
+    45deg,
+    #222,
+    #222 4px,
+    #555 4px,
+    #555 8px
+  );
   width: 0%;
-  transition: width 0.25s linear;
 }
+
+/* Transport buttons */
+.btn-spotify {
+  background: #dcd8cf;
+  border: 2px outset #fff;
+  color: #000;
+  font-size: 16px;
+  padding: 4px 8px;
+  cursor: pointer;
+  margin: 2px;
+  border-radius: 0px;
+}
+
+.btn-spotify:active {
+  border: 2px inset #fff;
+}
+
+.btn-spotify:disabled {
+  color: #777;
+  background: #eae7e0;
+  cursor: not-allowed;
+}
+
+/* Center controls */
+.main-wrapper > .btn-spotify {
+  display: inline-block;
+}
+
+/* Volume */
+.volume {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.vol-down,
+.vol-up {
+  background: #dcd8cf;
+  border: 2px outset #fff;
+  padding: 4px 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.vol-down:active,
+.vol-up:active {
+  border: 2px inset #fff;
+}
+
+.vol-down:disabled,
+.vol-up:disabled {
+  color: #777;
+  background: #eae7e0;
+}
+
+/* Lyrics spacing */
+p {
+  margin-top: 16px;
+  font-size: 11px;
+  color: #444;
+}
+
+.btn-spotify-login {
+background: #dcd8cf;
+  border: 2px outset #fff;
+  color: #000;
+  font-size: 16px;
+  padding: 4px 8px;
+  cursor: pointer;
+  margin: 2px;
+  border-radius: 0px;
+}
+

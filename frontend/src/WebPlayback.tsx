@@ -157,7 +157,7 @@ function WebPlayback(props: MyProp) {
     // ask user to reauthenticate if not logged in
 
     if (!player || is_active == false || authenticate == false)  {
-        return (<div>
+        return (<div className='btn-spotify-login'>
             <Login></Login> Please login again!
             </div>)
     }
@@ -312,12 +312,14 @@ function WebPlayback(props: MyProp) {
                          
                 </div>
 
+                {player && is_active && current_track.name && (
+                <Lyrics track={current_track} position={position} />
+                )}
+
 
             </div>
             
-             {player && is_active && current_track.name && (
-                <Lyrics track={current_track} position={position} />
-            )}
+             
 
             <p>Welcome</p>
 
