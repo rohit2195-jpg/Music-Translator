@@ -30,7 +30,7 @@ console.log(spotify_client_id);
 
 let access_token = null;
 
-const redirect_uri = "https://music-translator.onrender.com/auth/callback"
+const redirect_uri = "https://main.d3db2kmtelhv4j.amplifyapp.com/auth/callback"
 
 
 app.use(cors());
