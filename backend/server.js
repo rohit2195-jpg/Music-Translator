@@ -299,7 +299,7 @@ app.get('/auth/callback', async (req, res) => {
     console.log('Access token:', access_token);
     console.log('Refresh token:', refresh_token);
 
-    res.redirect("/");
+    res.redirect("https://main.d3db2kmtelhv4j.amplifyapp.com");
 
   } catch (error) {
     console.error('Error fetching Spotify token:', error);
