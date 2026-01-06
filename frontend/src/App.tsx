@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import WebPlayback from './WebPlayback.tsx'
-import Login from './Login.tsx'
 import './App.css';
 
 function App() {
@@ -23,7 +22,7 @@ function App() {
 
   return (
     <>
-        { (token === '') ? <Login/> : <WebPlayback token={token} /> }
+        { <WebPlayback token={token} /> }
     </>
   );
 }
