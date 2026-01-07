@@ -23,6 +23,7 @@ const track = {
 
 interface MyProp {
     token: string;
+    setToken: any;
 }
 
 declare global {
@@ -158,7 +159,7 @@ function WebPlayback(props: MyProp) {
 
     if (!player || is_active == false || authenticate == false)  {
         return (<div className='btn-spotify-login'>
-            <Login></Login> Please login again!
+            <Login></Login>
             </div>)
     }
 

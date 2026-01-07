@@ -1,13 +1,5 @@
 /* Retro base */
-* {
-  box-sizing: border-box;
-  font-family: "Courier New", Courier, monospace;
-}
 
-body {
-  background: #f4f1ea;
-  color: #222;
-}
 
 /* Layout */
 .container {
@@ -15,6 +7,10 @@ body {
   flex-direction: column;
   align-items: center;
   padding: 24px;
+    background: #dcdcdc;
+  color: #222;
+    box-sizing: border-box;
+  font-family: "Courier New", Courier, monospace;
 }
 
 .main-wrapper {
@@ -39,7 +35,7 @@ body {
 .now-playing__side {
   border: 2px inset #aaa;
   padding: 8px;
-  background: #f8f6f1;
+  background: #dcdcdc;
   margin-bottom: 12px;
 }
 
@@ -92,9 +88,9 @@ body {
   width: 0%;
 }
 
-/* Transport buttons */
+/* Transport buttonss */
 .btn-spotify {
-  background: #dcd8cf;
+  background: #dcdcdc;
   border: 2px outset #fff;
   color: #000;
   font-size: 16px;
@@ -110,7 +106,7 @@ body {
 
 .btn-spotify:disabled {
   color: #777;
-  background: #eae7e0;
+  background: #dcdcdc;
   cursor: not-allowed;
 }
 
@@ -129,7 +125,7 @@ body {
 
 .vol-down,
 .vol-up {
-  background: #dcd8cf;
+  background: #dcdcdc;
   border: 2px outset #fff;
   padding: 4px 6px;
   font-size: 14px;
@@ -144,18 +140,13 @@ body {
 .vol-down:disabled,
 .vol-up:disabled {
   color: #777;
-  background: #eae7e0;
+  background: #dcdcdc;
 }
 
-/* Lyrics spacing */
-p {
-  margin-top: 16px;
-  font-size: 11px;
-  color: #444;
-}
+
 
 .btn-spotify-login {
-background: #dcd8cf;
+background: #dcdcdc;
   border: 2px outset #fff;
   color: #000;
   font-size: 16px;

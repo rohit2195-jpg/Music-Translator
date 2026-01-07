@@ -30,9 +30,10 @@ console.log(spotify_client_id);
 
 let access_token = null;
 
-const redirect_uri = "https://music-translator.onrender.com/auth/callback"
+const redirect_uri = "http://127.0.0.1:3000/auth/callback"
 
-
+// http://127.0.0.1:5174/
+// https://music-translator.onrender.com/auth/callback
 
 app.use(cors());
 //app.use(express.json());
@@ -299,7 +300,9 @@ app.get('/auth/callback', async (req, res) => {
     console.log('Access token:', access_token);
     console.log('Refresh token:', refresh_token);
 
-    res.redirect("https://main.d3db2kmtelhv4j.amplifyapp.com");
+    // this line
+    // http://music-translator-app-frontend.s3-website.us-east-2.amazonaws.com
+    res.redirect("http://music-translator-app-frontend.s3-website.us-east-2.amazonaws.com");
 
   } catch (error) {
     console.error('Error fetching Spotify token:', error);
