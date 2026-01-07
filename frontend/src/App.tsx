@@ -23,6 +23,7 @@ function App() {
 
   return (
     <>
+    <p>This website can translate lyrics from a premium spotify account. Without a premium spotify account, this website will not be able to operate</p>
         { (token === '') ? <Login/> : <WebPlayback token={token} /> }
     </>
   );
