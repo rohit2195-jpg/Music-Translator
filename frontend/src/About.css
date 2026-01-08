@@ -1,0 +1,24 @@
+.first-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 30px;
+
+
+}
+
+.question-answer {
+    flex: 1;
+    background-color: aliceblue;
+    padding: 20px;
+    border-radius: 30px;
+    border: 2px solid black;
+    max-width: 50%;
+}
+
+.thriller-image  {
+    width: 200px;
+    height: auto;
+    display: block;
+    padding-left: 60px;
+    border-radius: 30px;
+}

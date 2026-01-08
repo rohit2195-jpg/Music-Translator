@@ -29,14 +29,26 @@ function App() {
       <div>
         <h1 className='header'>Welcome to the Spotify Music Translator service</h1> 
             <div className='container'>
+
+            <Login/> 
+
+
+
                   <p className='disclaimer'>This website can translate lyrics from a premium spotify account. Without a premium spotify account, this website will not be able to operate</p>
+            
+            <br></br>
             <p className='description'>How it works: First, this project links your music to Spotify account. We use spotify to to get track information, and allow you to play music directly from the project itself.
               Then, it fetches LRC lyrics from an API called LRCLIB. This project translates lyrics in 2 ways. 
               For simpler translations, google translate is used. For more advanced translation, like romanized text or more complex languages, I utilized an AI model to be able to provide accurate and engaging translations to the lyrics.
               </p>
+
+              <br></br>
+              <p>
+                Currenlty, this project does not work in safari due to DRM issues in the browser. Please use Google Chrome or Firefox.
+              </p>
             </div>
 
-             <Login/> 
+    
       </div>
     )
   }
