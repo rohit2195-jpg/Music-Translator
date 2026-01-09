@@ -28,7 +28,7 @@ Link - [dukz8h8o1lsds.cloudfront.net]
 
 ### Notable Challenges 
 
-One notable challenge that I faced was determining how I wanted to translate lyrics. I compared the benefits and drawbacks of word by word, line by line, and literal vs more nuanced translations. I ended up translating line by line, as the user would be able to understand the context and nuance of lyrics, compared to other translations (like everyday language). Overall, this was a very fun project to undertake because the documentation for these resources were very clear and helpful.
+One notable challenge that I faced was determining how I wanted to translate lyrics. I compared the benefits and drawbacks of word by word, line by line, and literal vs more nuanced translations. Thanks to my friend Aneesh's help, I ended up translating line by line, as the user would be able to understand the context and nuance of lyrics, compared to other translations (like everyday language). Overall, this was a very fun project to undertake because the documentation for these resources were very clear and helpful.
 
 ### Next Steps
-I really want this project to work on mobile devices, as now it only works on laptops, due to DRM constraints. My next step will be to make this project as accessible as possible.
+I really want this project to work on mobile devices, as now it only works on laptops (Google Chrome & Firefox), due to DRM constraints. My next step will be to make this project as accessible as possible.

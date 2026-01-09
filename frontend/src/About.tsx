@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import './About.css';
-import album_img from '../public/Michael_Jackson_-_Thriller.png'
+import album_img from '/Michael_Jackson_-_Thriller.png'
 
 function About() {
 

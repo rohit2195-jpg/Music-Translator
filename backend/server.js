@@ -304,7 +304,7 @@ app.get('/auth/callback', async (req, res) => {
     // http://music-translator-app-frontend.s3-website.us-east-2.amazonaws.com
     // http://127.0.0.1:5174
     // https://dukz8h8o1lsds.cloudfront.net
-    res.redirect("http://127.0.0.1:5174");
+    res.redirect("https://dukz8h8o1lsds.cloudfront.net");
 
   } catch (error) {
     console.error('Error fetching Spotify token:', error);

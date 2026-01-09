@@ -5,6 +5,8 @@ import './App.css';
 import { API_BASE } from './ApiBase.tsx';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import About from './About.tsx';
+import { FaGithub } from "react-icons/fa";
+
 
 function App() {
 
@@ -48,6 +50,21 @@ function App() {
               </p>
             </div>
 
+
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <a
+                      href="https://github.com/rohit2195-jpg/Music-Translator"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: 'none', color: 'inherit' }}
+                    >
+                      <FaGithub size={20} />
+                    </a>
+
+                  </div>
+                </div>
+
     
       </div>
     )
@@ -65,11 +82,28 @@ function App() {
                     <Link to="/about">About</Link>
 
                   <WebPlayback token={token} setToken={setToken} />
-                  <button onClick={() => setToken('')}>Sign out</button>
+
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <a
+                      href="https://github.com/rohit2195-jpg/Music-Translator"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: 'none', color: 'inherit' }}
+                    >
+                      <FaGithub size={20} />
+                    </a>
+
+                    <button onClick={() => setToken('')}>Sign out</button>
+                  </div>
+                </div>
+
+
                 </div>
               }
             />
             <Route path="/about" element={<About />} />
+            
           </Routes>
         </BrowserRouter>
       </div>
