@@ -7,6 +7,7 @@ import { GoogleGenAI } from '@google/genai';
 import { translate } from '@vitalets/google-translate-api';
 
 
+
 dotenv.config();
 
 
@@ -25,9 +26,6 @@ var spotify_client_secret = process.env.SPOTIFY_CLIENT_SECRET
 const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY)
 
 
-console.log("hello");
-console.log(spotify_client_id);
-
 let access_token = null;
 
 const redirect_uri = "https://music-translator.onrender.com/auth/callback"
@@ -41,6 +39,8 @@ app.use(cors());
 
 
 async function translateTextAdvanced(linesArray, target) {
+
+  // combining lyrics array into one large string
 
   let fullstr = "";
   for (var i = 0 ; i < linesArray.length; i++) {
@@ -66,6 +66,8 @@ async function translateTextAdvanced(linesArray, target) {
     });
   const text = response.text;
 
+  // creating the initial array by splitting by newlines
+
   const lines = text.split("\n");
 
 
@@ -81,6 +83,8 @@ async function translateTextStandard(linesArray, target) {
   for (var i = 0 ; i < linesArray.length; i++) {
     fullstr += linesArray[i] + "\n";
   }
+
+  // using google translate API to translate lyrics
 
   const text = await translate(fullstr, {to:target});
 
@@ -105,13 +109,16 @@ function normalize(str) {
 
 app.post('/lyrics/lrc_synced_translate', async (req, res) => {
   try {
-    console.log("Fetching translated lyrics from backend");
-    // can input array into translate text
+    //console.log("Fetching translated lyrics from backend");
 
     const lines = req.body.lyrics.split("\n");
 
     const lyric_arr = [];
     const timestamp_arr = [];
+
+
+    // extracting the time stamp and subsequent lyrics from the array
+    // assuming format of [00:00 - 01:00] Lyrics here
 
     for (const line of lines) {
       const match = line.match(/^\[([^\]]+)\]\s*(.*)$/);
@@ -122,14 +129,11 @@ app.post('/lyrics/lrc_synced_translate', async (req, res) => {
     }
 
 
-    //console.log(lyric_arr);
-    //console.log(timestamp_arr);
 
     // use AI or google translate based on user selection
 
     var translated = '';
 
-    console.log(req.body.isStandard);
     if (req.body.isStandard) {
       translated = await translateTextStandard(lyric_arr, req.body.language);
     }
@@ -138,15 +142,13 @@ app.post('/lyrics/lrc_synced_translate', async (req, res) => {
     }
 
     
-
+    // using decode to clean translated text
     const cleaned = translated.map(line => he.decode(line));
-    //console.log(cleaned);
 
     const combined = cleaned.map((line, i) => {
       return `${timestamp_arr[i]} ${line}`;
     });
 
-    //console.log(combined);
 
     res.json({ lyrics: combined.join("\n") });;
   } catch (err) {
@@ -160,12 +162,9 @@ app.post('/lyrics/lrc_synced_translate', async (req, res) => {
 
 app.post('/lyrics/lrc_synced_native', async (req, res) => {
   console.log("lyrics of the song are being fetched!")
-  //console.log("inputs:", req.body);
 
   try {
-    // trying to find lyrics for each artist name, returning first one that isnt null
-    // new comment
-    console.log(req.body);
+    // Using search command, to get array of possible options
 
     const duration_sec = Math.floor(req.body.duration_ms / 1000);
     const url1 = new URL("https://lrclib.net/api/search");
@@ -176,12 +175,10 @@ app.post('/lyrics/lrc_synced_native', async (req, res) => {
 
     url1.searchParams.append("track_name", req.body.name);
     url1.searchParams.append("album_name", req.body.album.name);
-    //url1.searchParams.append("duration", duration_sec);
 
     const response = await fetch(url1.toString());
     const data = await response.json();
 
-    console.log("LRCLIB response:", data);
 
 
     // implement a better scoring system here for all possible lyrics using maybe artist name and duration
@@ -193,7 +190,7 @@ app.post('/lyrics/lrc_synced_native', async (req, res) => {
         Math.abs(e.duration - duration_sec) <= 2 
       );
 
-    
+  // returning an array full of options, so that the user can easily change lyrics if they are incorrect   
     var syncedLyrics_arr = []
     var plainLyrics_arr = []
     for (var i = 0 ; i < candidates.length; i++) {
@@ -201,7 +198,6 @@ app.post('/lyrics/lrc_synced_native', async (req, res) => {
       plainLyrics_arr.push(candidates[i].syncedLyrics)
     }
 
-    console.log("number of available lyrics", candidates.length);
 
     if (candidates.length) {
       return res.json({
@@ -209,36 +205,6 @@ app.post('/lyrics/lrc_synced_native', async (req, res) => {
         plainLyrics: plainLyrics_arr
       });
     }
-
-
-
-    
-
-
-    // chekcing individual artist name
-
-    /*
-
-    for (let i = 0 ; i < req.body.artists.length; i++) {
-
-
-      const url = new URL("https://lrclib.net/api/get");
-      url.searchParams.append("track_name", normalize(req.body.name));
-      url.searchParams.append("artist_name", normalize(req.body.artists[i].name));
-      url.searchParams.append("album_name", normalize(req.body.album.name));
-      url.searchParams.append("duration", duration_sec);
-
-      const response = await fetch(url.toString());
-      const data = await response.json();
-
-      console.log("LRCLIB response:", data);
-
-      if (data.syncedLyrics != null) {
-        return res.json({ lyrics: data.syncedLyrics, plainLyrics: data.plainLyrics });
-      }
-
-    }
-      */
 
   
     

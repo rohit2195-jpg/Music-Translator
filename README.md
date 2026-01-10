@@ -6,7 +6,7 @@ My goal was for individuals to be able to explore new genres, and understand/app
 ### Check out the project!
 I appreciate all the feedback.
 
-Link - [dukz8h8o1lsds.cloudfront.net]
+[dukz8h8o1lsds.cloudfront.net](dukz8h8o1lsds.cloudfront.net)
 
 ### How does it work?
  1. First, this project links your music to Spotify account. We use spotify to to get track information, and allow you to play music directly from the project itself. 
