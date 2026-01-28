@@ -57,6 +57,7 @@ function Lyrics({track, position}: MyProp) {
 
         const json = await response.json();
         setLyrics(json.lyrics );
+        console.log(json.lyrics)
         setPlainLyrics(json.plainLyrics)
         setIndexLyrics(0);
     }

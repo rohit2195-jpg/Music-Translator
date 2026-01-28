@@ -169,13 +169,13 @@ app.post('/lyrics/lrc_synced_native', async (req, res) => {
 
     const duration_sec = Math.floor(req.body.duration_ms / 1000);
     const url1 = new URL("https://lrclib.net/api/search");
-    var artists = '';
-    for (let i = 0 ; i < req.body.artists.length; i++) {
-      artists += req.body.artists[i] + ", ";
-    }
+
 
     url1.searchParams.append("track_name", req.body.name);
     url1.searchParams.append("album_name", req.body.album.name);
+    if (req.body.artists.length == 1) {
+      url1.searchParams.append("artist_name", req.body.artists[0].name);
+    }
 
     const response = await fetch(url1.toString());
     const data = await response.json();
@@ -185,22 +185,29 @@ app.post('/lyrics/lrc_synced_native', async (req, res) => {
     // implement a better scoring system here for all possible lyrics using maybe artist name and duration
     // or allow user to pikc from the options
 
-    const candidates = data
-      .filter(e =>
-        e.syncedLyrics &&
-        Math.abs(e.duration - duration_sec) <= 2 
-      );
+    const candidates = [...data].sort((a, b) => {
+      const goodA =
+        a.syncedLyrics && Math.abs(a.duration - duration_sec) <= 2;
+      const goodB =
+        b.syncedLyrics && Math.abs(b.duration - duration_sec) <= 2;
+
+      return Number(goodB) - Number(goodA);
+    });
+
 
   // returning an array full of options, so that the user can easily change lyrics if they are incorrect   
     var syncedLyrics_arr = []
     var plainLyrics_arr = []
     for (var i = 0 ; i < candidates.length; i++) {
-      syncedLyrics_arr.push(candidates[i].syncedLyrics)
-      plainLyrics_arr.push(candidates[i].syncedLyrics)
+      if (candidates[i].syncedLyrics != null && candidates[i].plainLyrics != null) {
+        syncedLyrics_arr.push(candidates[i].syncedLyrics)
+        plainLyrics_arr.push(candidates[i].plainLyrics)
+      }
+
     }
 
 
-    if (candidates.length) {
+    if (candidates.length > 0) {
       return res.json({
         lyrics: syncedLyrics_arr,
         plainLyrics: plainLyrics_arr
@@ -268,11 +275,9 @@ app.get('/auth/callback', async (req, res) => {
     console.log('Refresh token:', refresh_token);
 
     // this line
-    // http://music-translator-app-frontend.s3-website.us-east-2.amazonaws.com
     // http://127.0.0.1:5174
     // https://dukz8h8o1lsds.cloudfront.net
-    res.redirect("https://dukz8h8o1lsds.cloudfront.net
-");
+    res.redirect("https://dukz8h8o1lsds.cloudfront.net");
 
   } catch (error) {
     console.error('Error fetching Spotify token:', error);
