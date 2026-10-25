@@ -24,7 +24,8 @@ const spotify_client_id = process.env.SPOTIFY_CLIENT_ID;
 const spotify_client_secret = process.env.SPOTIFY_CLIENT_SECRET;
 
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const gemini_model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+// the smallest, cheapest Gemini that still works: translating lyrics doesn't need a big model
+const gemini_model = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
 
 // each Gemini model has its own capacity, so when the main one is busy (503 "high demand")
 // another one usually isn't. tried in order before giving up on AI
