@@ -84,7 +84,26 @@ async function translateLines(linesArray, translateFn) {
 }
 
 
-async function translateTextAdvanced(linesArray, target) {
+// a letter from any script other than Latin (Devanagari, Hangul, Kana, Arabic...).
+// those lines get a romanized version, lines already in Latin letters ("tum hi ho") don't need one
+const NON_LATIN = /(?!\p{Script=Latin})\p{L}/u;
+const needsRomanization = (text) => NON_LATIN.test(text);
+
+
+// with romanize, returns { translation, romanized } per line instead of just the translated line
+
+async function translateTextAdvanced(linesArray, target, romanize = false) {
+
+  const romanizeRules = romanize ? `
+    Also romanize each original line: write it in Latin letters the way a native speaker would casually type it,
+    so a learner can sing along (Hindi as Hinglish like "tum hi ho", no diacritics; Japanese in Hepburn romaji;
+    Chinese in pinyin with tone marks; Korean in Revised Romanization).
+    If a line is already in Latin letters, use an empty string for its romanized value.
+    Return a JSON array with exactly ${linesArray.length} objects, one per input line, in the same order,
+    each with "translation" (the translated line) and "romanized" (the original line in Latin letters).
+  ` : `
+    Return a JSON array of strings with exactly ${linesArray.length} items, one translated line per input line, in the same order.
+  `;
 
   const prompt = `
     You are a professional song lyrics translator.
@@ -92,21 +111,26 @@ async function translateTextAdvanced(linesArray, target) {
     Translate each of the following song lyric lines into the language with code "${target}".
     Preserve meaning, emotion, and artistic intent over literal word-for-word translation.
     Use natural, fluent language that sounds appropriate for song lyrics.
-    Return a JSON array of strings with exactly ${linesArray.length} items, one translated line per input line, in the same order.
+    ${romanizeRules}
 
     Lines:
     ${JSON.stringify(linesArray)}
   `;
+
+  const items = romanize
+    ? {
+        type: Type.OBJECT,
+        properties: { translation: { type: Type.STRING }, romanized: { type: Type.STRING } },
+        required: ['translation', 'romanized'],
+      }
+    : { type: Type.STRING };
 
   const response = await withRetry(() => genAI.models.generateContent({
     model: gemini_model,
     contents: prompt,
     config: {
       responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING },
-      },
+      responseSchema: { type: Type.ARRAY, items },
     },
   }), { retries: 2, baseDelay: 1000 });
 
@@ -161,16 +185,29 @@ app.post('/lyrics/lrc_synced_translate', async (req, res) => {
 
 
 
-    // use AI or google translate based on user selection
+    // use AI or google translate based on user selection.
+    // AI also romanizes lyrics written in another script (Devanagari, Hangul...), Google Translate can't
 
     let translator = isStandard ? 'standard' : 'advanced';
     let translated;
+    let romanized = null;
 
     if (isStandard) {
       translated = await translateLines(lyric_arr, (arr) => translateTextStandard(arr, language));
     } else {
       try {
-        translated = await translateLines(lyric_arr, (arr) => translateTextAdvanced(arr, language));
+        const romanize = lyric_arr.some(needsRomanization);
+        const results = await translateLines(lyric_arr, (arr) => translateTextAdvanced(arr, language, romanize));
+
+        if (romanize) {
+          // results hold { translation, romanized } for lyric lines, and the original string
+          // for empty lines (or a line Gemini dropped)
+          translated = results.map((r, i) => (typeof r === 'string' ? r : r.translation || lyric_arr[i]));
+          romanized = results.map((r, i) =>
+            typeof r === 'string' || !needsRomanization(lyric_arr[i]) ? '' : String(r.romanized ?? '').replace(/\s+/g, ' ').trim());
+        } else {
+          translated = results;
+        }
       } catch (err) {
         // Gemini still busy after retries, Google Translate is better than nothing
         console.error('AI translation failed, using standard instead:', err.message);
@@ -184,9 +221,10 @@ app.post('/lyrics/lrc_synced_translate', async (req, res) => {
     const combined = timestamp_arr.map((timestamp, i) => {
       return `${timestamp} ${he.decode(translated[i] ?? '')}`;
     });
+    const romanized_lrc = romanized && timestamp_arr.map((timestamp, i) => `${timestamp} ${he.decode(romanized[i])}`);
 
 
-    res.json({ lyrics: combined.join("\n"), translator });
+    res.json({ lyrics: combined.join("\n"), romanized: romanized_lrc?.join("\n") ?? null, translator });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Translation failed' });

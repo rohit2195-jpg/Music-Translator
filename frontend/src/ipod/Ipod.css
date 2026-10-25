@@ -456,6 +456,13 @@
   line-height: 1.25;
 }
 
+.scr-line__rom {
+  font-size: 10px;
+  font-style: italic;
+  line-height: 1.25;
+  margin-top: 1px;
+}
+
 .scr-line__tr {
   font-size: 10px;
   line-height: 1.25;

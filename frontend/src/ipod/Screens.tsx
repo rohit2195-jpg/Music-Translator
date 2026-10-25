@@ -133,6 +133,7 @@ export function LyricsView({ lines, active, showTranslation, badge, footer }: Ly
         {lines.map((line, i) => (
           <div key={i} ref={i === active ? activeRef : undefined} className={`scr-line${i === active ? ' is-active' : ''}`}>
             <div className="scr-line__text">{line.text || '♪'}</div>
+            {showTranslation && line.romanized && <div className="scr-line__rom">{line.romanized}</div>}
             {showTranslation && line.text && line.translation && line.translation !== line.text && (
               <div className="scr-line__tr">{line.translation}</div>
             )}

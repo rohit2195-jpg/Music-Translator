@@ -2,6 +2,7 @@ export interface LyricLine {
   time: number; // ms
   text: string;
   translation?: string;
+  romanized?: string; // the original line in Latin letters, AI translator only
 }
 
 // same line matching as the backend, so original and translated lines pair up by index
@@ -21,15 +22,16 @@ function parseTime(tag: string): number | null {
   return Math.round((Number(match[1]) * 60 + Number(match[2])) * 1000);
 }
 
-export function parseLrc(lrc: string, translatedLrc?: string | null): LyricLine[] {
+export function parseLrc(lrc: string, translatedLrc?: string | null, romanizedLrc?: string | null): LyricLine[] {
   const original = rawLines(lrc);
   const translated = translatedLrc ? rawLines(translatedLrc) : null;
+  const romanized = romanizedLrc ? rawLines(romanizedLrc) : null;
 
   const lines: LyricLine[] = [];
   original.forEach((line, i) => {
     const time = parseTime(line.tag);
     if (time === null) return;
-    lines.push({ time, text: line.text, translation: translated?.[i]?.text });
+    lines.push({ time, text: line.text, translation: translated?.[i]?.text, romanized: romanized?.[i]?.text || undefined });
   });
   return lines;
 }

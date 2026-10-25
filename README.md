@@ -19,6 +19,8 @@ I appreciate all the feedback.
 
     b. **AI:** Google Gemini, for more natural and nuanced translations, like romanized text or more complex languages. If Gemini is busy, it falls back to Google Translate and the iPod tells you.
 
+    With AI, lyrics written in another script (Hindi in Devanagari, Korean, Japanese...) also get a romanized line between the original and the translation, so you can sing along and learn the words. Lyrics already in Latin letters (like Hinglish) are left as they are.
+
 ### The iPod
  - Spin the click wheel (drag around the ring, scroll, or use the arrow keys) to move through menus. On the Now Playing screen it changes the volume.
  - **MENU** opens the settings: lyrics on/off, translation on/off, language (13 options), translator (Standard / AI), other lyric versions, iPod color, and the clicker sound.

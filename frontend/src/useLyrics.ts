@@ -5,6 +5,11 @@ import type { PlayerTrack } from './player/types';
 
 export type LyricsStatus = 'off' | 'loading' | 'ready' | 'none' | 'error';
 
+interface Translation {
+  lyrics: string;
+  romanized: string | null;
+}
+
 interface Options {
   enabled: boolean;
   translate: boolean;
@@ -16,7 +21,7 @@ export function useLyrics(track: PlayerTrack | null, { enabled, translate, langu
   const [candidates, setCandidates] = useState<{ trackId: string; lrcs: string[] } | null>(null);
   const [failedTrack, setFailedTrack] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
-  const [translations, setTranslations] = useState<Record<string, string | null>>({});
+  const [translations, setTranslations] = useState<Record<string, Translation | null>>({});
   const [fellBack, setFellBack] = useState<Record<string, boolean>>({});
   const [reloadKey, setReloadKey] = useState(0);
   const requested = useRef(new Set<string>());
@@ -73,7 +78,7 @@ export function useLyrics(track: PlayerTrack | null, { enabled, translate, langu
     postJson('/lyrics/lrc_synced_translate', { lyrics: lrc, language, isStandard })
       .then(response => (response.ok ? response.json() : Promise.reject(new Error('translate failed'))))
       .then(json => {
-        setTranslations(prev => ({ ...prev, [translationKey]: json.lyrics }));
+        setTranslations(prev => ({ ...prev, [translationKey]: { lyrics: json.lyrics, romanized: json.romanized ?? null } }));
         // AI was busy, so the backend used Google Translate instead
         if (!isStandard && json.translator === 'standard') setFellBack(prev => ({ ...prev, [translationKey]: true }));
       })
@@ -83,8 +88,11 @@ export function useLyrics(track: PlayerTrack | null, { enabled, translate, langu
       });
   }, [enabled, translate, lrc, translationKey, language, isStandard]);
 
-  const translatedLrc = translate ? translations[translationKey] : undefined;
-  const lines = useMemo(() => (lrc ? parseLrc(lrc, translatedLrc) : []), [lrc, translatedLrc]);
+  const translation = translate ? translations[translationKey] : undefined;
+  const lines = useMemo(
+    () => (lrc ? parseLrc(lrc, translation?.lyrics, translation?.romanized) : []),
+    [lrc, translation],
+  );
 
   let status: LyricsStatus = 'loading';
   if (!enabled) status = 'off';
@@ -95,8 +103,8 @@ export function useLyrics(track: PlayerTrack | null, { enabled, translate, langu
   return {
     status,
     lines,
-    translating: translate && !!lrc && translatedLrc === undefined,
-    translationFailed: translate && translatedLrc === null,
+    translating: translate && !!lrc && translation === undefined,
+    translationFailed: translate && translation === null,
     translationFellBack: translate && !!fellBack[translationKey],
     candidateIndex: index,
     candidateCount: current?.length ?? 0,
