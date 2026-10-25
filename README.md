@@ -122,8 +122,25 @@ One-time setup (AWS CLI, as an admin):
 
 4. Configure the function (CI only uploads code, it doesn't change these):
     - Runtime Node.js 22.x, handler `lambda.handler`, timeout 30 seconds (the 3 second default is too short for lyrics + translation).
-    - Environment variables: `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `GEMINI_API_KEY`, `REDIRECT_URI` (your Lambda URL + `/auth/callback`, also added in the Spotify dashboard) and `FRONTEND_URL`.
-    - A Function URL (or API Gateway) so the frontend can reach it, then set `VITE_API_BASE` to it when building the frontend.
+    - Environment variables: `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `GEMINI_API_KEY`, `REDIRECT_URI` (`https://dukz8h8o1lsds.cloudfront.net/auth/callback`, also added in the Spotify dashboard) and `FRONTEND_URL`.
+    - A Function URL with auth type `AWS_IAM`, used as a CloudFront origin (see below). It is not public: only CloudFront can call it.
+
+### How requests reach the backend (CloudFront)
+
+One CloudFront distribution serves everything on `https://dukz8h8o1lsds.cloudfront.net`:
+
+| Path | Goes to | Caching |
+|---|---|---|
+| `/auth/*`, `/lyrics/*` | Lambda Function URL | Off (`CachingDisabled`, origin request policy `AllViewerExceptHostHeader`) |
+| everything else | S3 bucket `music-translator-app-frontend` | On; the `spa-rewrite` CloudFront Function serves `index.html` for app routes like `/about` |
+
+- **Locked down with Origin Access Control (OAC):** CloudFront signs every request to the Lambda, and the Lambda's permissions only accept requests signed by this distribution. Calling the Function URL directly returns 403, so all traffic goes through CloudFront (and its firewall). The S3 bucket is private the same way.
+- **POST bodies:** CloudFront can't sign a request body itself, so the frontend sends its SHA-256 hash in an `x-amz-content-sha256` header (`postJson` in `frontend/src/ApiBase.tsx`). A POST without it is rejected.
+- **Same domain:** the frontend calls `/lyrics/...` on its own domain (`API_BASE` is empty in production), so there's no CORS in production.
+
+### Deploying the frontend
+
+Every push to `main` that changes `frontend/` runs `.github/workflows/deploy-frontend.yml`: lint, build, upload to S3, then clear CloudFront's cache. Hashed files in `assets/` are cached for a year; `index.html` is `no-cache` so a new build shows up right away. It logs in with the `update-frontend-s3` role (GitHub secret `AWS_FRONTEND_ROLE_ARN`), which can only write to the bucket and invalidate this distribution.
 
 5. In GitHub: Settings → Secrets and variables → Actions → New repository secret, named `AWS_DEPLOY_ROLE_ARN`, value `arn:aws:iam::769297868172:role/github-deploy-music-translator`.
 
