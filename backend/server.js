@@ -45,8 +45,10 @@ const ai_providers = [
   ...(groq_api_key ? groq_models.map(model => ({ name: `Groq ${model}`, call: callGroq, model })) : []),
 ];
 
-// AI gets this long in total, leaving time for Google Translate within the 25s Lambda timeout
+// AI gets this long in total, leaving time for Google Translate within the 25s Lambda timeout.
+// each model gets at most PROVIDER_TIMEOUT_MS of it, so one stuck model still leaves time for the next
 const AI_TIME_BUDGET_MS = 15000;
+const PROVIDER_TIMEOUT_MS = 9000;
 
 // local: http://127.0.0.1:3000/auth/callback and http://127.0.0.1:5173
 // (Spotify no longer accepts "localhost" redirect URIs, use 127.0.0.1)
@@ -62,16 +64,17 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const isBusyStatus = (status) => status === 429 || status >= 500;
 
 
-// LRCLIB and Gemini both return "busy" errors (429 / 503) now and then, so retry those a few times
+// LRCLIB and Gemini both return "busy" errors (429 / 503) now and then, so retry those a few times.
+// once the signal's time is up, stop instead (the error is the timeout itself, not a busy server)
 
-async function withRetry(fn, { retries = 3, baseDelay = 500 } = {}) {
+async function withRetry(fn, { retries = 3, baseDelay = 500, signal } = {}) {
   for (let attempt = 0; ; attempt++) {
     try {
       return await fn();
     } catch (err) {
       const status = err.status ?? 0;
       const retryable = status === 0 || isBusyStatus(status);
-      if (!retryable || attempt >= retries) throw err;
+      if (!retryable || attempt >= retries || signal?.aborted) throw err;
       await sleep(baseDelay * 2 ** attempt);
     }
   }
@@ -146,7 +149,8 @@ async function translateTextAdvanced(linesArray, target, romanize = false) {
   for (const provider of ai_providers) {
     if (remaining() <= 0) break;
     try {
-      const lines = await provider.call(provider.model, prompt, romanize, AbortSignal.timeout(remaining()));
+      const signal = AbortSignal.timeout(Math.min(remaining(), PROVIDER_TIMEOUT_MS));
+      const lines = await provider.call(provider.model, prompt, romanize, signal);
 
       // a model that skips or merges lines would put translations next to the wrong lyrics
       if (!Array.isArray(lines) || lines.length !== linesArray.length) {
@@ -180,16 +184,21 @@ async function callGemini(model, prompt, romanize, signal) {
       }
     : { type: Type.STRING };
 
-  // one quick retry per model, then move on: a busy model usually stays busy for a while
-  const response = await withRetry(() => genAI.models.generateContent({
-    model,
-    contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: { type: Type.ARRAY, items },
-      abortSignal: signal,
-    },
-  }), { retries: 1, baseDelay: 500 });
+  // one quick retry per model, then move on: a busy model usually stays busy for a while.
+  // the SDK only listens for the signal firing later, a request given an already-expired signal
+  // would never time out, so check it before each try
+  const response = await withRetry(() => {
+    signal.throwIfAborted();
+    return genAI.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: { type: Type.ARRAY, items },
+        abortSignal: signal,
+      },
+    });
+  }, { retries: 1, baseDelay: 500, signal });
 
   return JSON.parse(response.text);
 }
@@ -245,8 +254,14 @@ async function callGroq(model, prompt, romanize, signal) {
 // using google translate to translate lyrics, one line per row.
 // Google also sends back the original in Latin letters ("src_translit"), used when AI is busy
 
+// 15s of AI + 8s here stays under the 25s Lambda timeout
+const GOOGLE_TIMEOUT_MS = 8000;
+
 async function translateTextGoogle(linesArray, target) {
-  const result = await translate(linesArray.join('\n'), { to: target });
+  const result = await translate(linesArray.join('\n'), {
+    to: target,
+    fetchOptions: { signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS) },
+  });
 
   const translit = result.raw?.sentences?.find(s => s.src_translit)?.src_translit?.split('\n');
 
