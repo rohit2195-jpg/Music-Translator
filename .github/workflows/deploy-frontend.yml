@@ -1,0 +1,71 @@
+# Builds frontend/ and publishes it to the S3 bucket behind CloudFront on every push to main.
+# Logs in to AWS the same way as deploy-backend.yml (OIDC, no stored keys), with its own role
+# that may only write to this bucket and clear this distribution's cache.
+
+name: Deploy frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency: deploy-frontend
+
+env:
+  AWS_REGION: us-east-2 # where the bucket lives
+  BUCKET: music-translator-app-frontend
+  DISTRIBUTION_ID: ENXI8L31PZFVW
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      # a broken build never reaches users
+      - run: npm run lint
+      - run: npm run build
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_FRONTEND_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # files in assets/ have a hash in their name (index-DxjH4aES.js), so a new build means new
+      # names and browsers can keep them forever. Upload these first so they exist before the
+      # new index.html points at them.
+      - run: >
+          aws s3 sync dist/assets "s3://$BUCKET/assets"
+          --cache-control "public, max-age=31536000, immutable"
+
+      # everything else (index.html, icons) keeps its name, so browsers must check for a new copy
+      - run: >
+          aws s3 sync dist "s3://$BUCKET" --exclude "assets/*"
+          --cache-control "no-cache" --delete
+
+      # old hashed files go last, once nothing points at them
+      - run: aws s3 sync dist/assets "s3://$BUCKET/assets" --delete
+
+      # CloudFront keeps its own copies at the edge; drop them so the new build shows up now
+      - run: >
+          aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID"
+          --paths "/*" --query Invalidation.Id --output text
