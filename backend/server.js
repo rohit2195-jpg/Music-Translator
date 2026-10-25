@@ -249,7 +249,11 @@ app.post('/lyrics/lrc_synced_native', async (req, res) => {
   const cache_key = `${name}|${artist_name}|${duration_sec}`;
 
   if (lyrics_cache.has(cache_key)) {
-    return res.json(lyrics_cache.get(cache_key));
+    const cached = lyrics_cache.get(cache_key);
+    if (cached.lyrics.length === 0) {
+      return res.status(404).json({ error: "No synced lyrics found", ...cached });
+    }
+    return res.json(cached);
   }
 
   try {
