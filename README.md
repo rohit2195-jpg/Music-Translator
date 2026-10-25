@@ -19,7 +19,7 @@ I appreciate all the feedback.
 
     b. **AI:** Google Gemini, for more natural and nuanced translations, like romanized text or more complex languages. If Gemini is busy, it falls back to Google Translate and the iPod tells you.
 
-    With AI, lyrics written in another script (Hindi in Devanagari, Korean, Japanese...) also get a romanized line between the original and the translation, so you can sing along and learn the words. Lyrics already in Latin letters (like Hinglish) are left as they are. Turn it off with **Romanized** in the menu. When the main Gemini model is busy, the backend tries backup Gemini models (`GEMINI_BACKUP_MODELS`) before falling back to Google Translate, and the iPod asks the AI again 20 seconds later.
+    With AI, lyrics written in another script (Hindi in Devanagari, Korean, Japanese...) also get a romanized line between the original and the translation, so you can sing along and learn the words. Lyrics already in Latin letters (like Hinglish) are left as they are. Turn it off with **Romanized** in the menu. When the main Gemini model is busy, the backend tries a backup Gemini model, then Groq's free tier (gpt-oss-120b), then Google Translate, which also romanizes. When that last step happens, the iPod asks the AI again 20 seconds later.
 
 ### The iPod
  - Spin the click wheel (drag around the ring, scroll, or use the arrow keys) to move through menus. On the Now Playing screen it changes the volume.
@@ -62,6 +62,8 @@ The desktop app (Electron) loads the deployed website, so it picks up updates wi
     GEMINI_API_KEY=...        # from Google AI Studio
     # GEMINI_MODEL=...        # optional, overrides the default Gemini model
     # GEMINI_BACKUP_MODELS=... # optional, comma-separated models to try when GEMINI_MODEL is busy
+    GROQ_API_KEY=...          # optional, from console.groq.com: free backup when Gemini is busy
+    # GROQ_MODELS=...         # optional, comma-separated Groq models (default openai/gpt-oss-120b)
     ```
 
 3. Backend: `cd backend && npm install && REDIRECT_URI=http://127.0.0.1:3000/auth/callback FRONTEND_URL=http://127.0.0.1:5173 npm start`
@@ -125,7 +127,7 @@ One-time setup (AWS CLI, as an admin):
 
 4. Configure the function (CI only uploads code, it doesn't change these):
     - Runtime Node.js 22.x, handler `lambda.handler`, timeout 30 seconds (the 3 second default is too short for lyrics + translation).
-    - Environment variables: `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `GEMINI_API_KEY`, `REDIRECT_URI` (`https://dukz8h8o1lsds.cloudfront.net/auth/callback`, also added in the Spotify dashboard) and `FRONTEND_URL`.
+    - Environment variables: `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `GEMINI_API_KEY`, `GROQ_API_KEY` (optional), `REDIRECT_URI` (`https://dukz8h8o1lsds.cloudfront.net/auth/callback`, also added in the Spotify dashboard) and `FRONTEND_URL`.
     - A Function URL with auth type `AWS_IAM`, used as a CloudFront origin (see below). It is not public: only CloudFront can call it.
 
 ### How requests reach the backend (CloudFront)

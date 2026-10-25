@@ -27,10 +27,23 @@ const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 // the smallest, cheapest Gemini that still works: translating lyrics doesn't need a big model
 const gemini_model = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
 
+const modelList = (value, fallback) => (value || fallback).split(',').map(m => m.trim()).filter(Boolean);
+
 // each Gemini model has its own capacity, so when the main one is busy (503 "high demand")
-// another one usually isn't. tried in order before giving up on AI
-const gemini_backup_models = (process.env.GEMINI_BACKUP_MODELS || 'gemini-3.5-flash-lite,gemini-flash-lite-latest')
-  .split(',').map(m => m.trim()).filter(m => m && m !== gemini_model);
+// another one usually isn't
+const gemini_backup_models = modelList(process.env.GEMINI_BACKUP_MODELS, 'gemini-3.5-flash-lite')
+  .filter(m => m !== gemini_model);
+
+// Groq (free tier, a different company's servers) for when Google is busy. skipped without a key
+const groq_api_key = process.env.GROQ_API_KEY;
+// (gpt-oss-20b is faster but often skips the romanization, Google does that better as the last step)
+const groq_models = modelList(process.env.GROQ_MODELS, 'openai/gpt-oss-120b');
+
+// tried in order until one answers. after these, Google Translate
+const ai_providers = [
+  ...[gemini_model, ...gemini_backup_models].map(model => ({ name: `Gemini ${model}`, call: callGemini, model })),
+  ...(groq_api_key ? groq_models.map(model => ({ name: `Groq ${model}`, call: callGroq, model })) : []),
+];
 
 // AI gets this long in total, leaving time for Google Translate within the 25s Lambda timeout
 const AI_TIME_BUDGET_MS = 15000;
@@ -108,10 +121,10 @@ async function translateTextAdvanced(linesArray, target, romanize = false) {
     so a learner can sing along (Hindi as Hinglish like "tum hi ho", no diacritics; Japanese in Hepburn romaji;
     Chinese in pinyin with tone marks; Korean in Revised Romanization).
     If a line is already in Latin letters, use an empty string for its romanized value.
-    Return a JSON array with exactly ${linesArray.length} objects, one per input line, in the same order,
+    Return exactly ${linesArray.length} objects, one per input line, in the same order,
     each with "translation" (the translated line) and "romanized" (the original line in Latin letters).
   ` : `
-    Return a JSON array of strings with exactly ${linesArray.length} items, one translated line per input line, in the same order.
+    Return exactly ${linesArray.length} strings, one translated line per input line, in the same order.
   `;
 
   const prompt = `
@@ -126,6 +139,39 @@ async function translateTextAdvanced(linesArray, target, romanize = false) {
     ${JSON.stringify(linesArray)}
   `;
 
+  const started = Date.now();
+  const remaining = () => AI_TIME_BUDGET_MS - (Date.now() - started);
+  let lastError;
+
+  for (const provider of ai_providers) {
+    if (remaining() <= 0) break;
+    try {
+      const lines = await provider.call(provider.model, prompt, romanize, AbortSignal.timeout(remaining()));
+
+      // a model that skips or merges lines would put translations next to the wrong lyrics
+      if (!Array.isArray(lines) || lines.length !== linesArray.length) {
+        throw new Error(`expected ${linesArray.length} lines, got ${Array.isArray(lines) ? lines.length : typeof lines}`);
+      }
+
+      // small models sometimes copy the original script into "romanized" instead of converting it
+      if (romanize) {
+        const needed = linesArray.filter(needsRomanization).length;
+        const unconverted = lines.filter((l, i) => needsRomanization(linesArray[i]) && needsRomanization(String(l?.romanized ?? ''))).length;
+        if (unconverted > needed * 0.2) throw new Error(`${unconverted} of ${needed} lines were not romanized`);
+      }
+      if (provider !== ai_providers[0]) console.log(`AI translation used backup ${provider.name}`);
+      return lines;
+    } catch (err) {
+      console.error(`${provider.name} failed:`, String(err.message).slice(0, 200));
+      lastError = err;
+    }
+  }
+
+  throw lastError ?? new Error('AI translation took too long');
+}
+
+
+async function callGemini(model, prompt, romanize, signal) {
   const items = romanize
     ? {
         type: Type.OBJECT,
@@ -134,51 +180,84 @@ async function translateTextAdvanced(linesArray, target, romanize = false) {
       }
     : { type: Type.STRING };
 
-  const config = {
-    responseMimeType: 'application/json',
-    responseSchema: { type: Type.ARRAY, items },
-  };
+  // one quick retry per model, then move on: a busy model usually stays busy for a while
+  const response = await withRetry(() => genAI.models.generateContent({
+    model,
+    contents: prompt,
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: { type: Type.ARRAY, items },
+      abortSignal: signal,
+    },
+  }), { retries: 1, baseDelay: 500 });
 
-  const started = Date.now();
-  let lastError;
-
-  for (const model of [gemini_model, ...gemini_backup_models]) {
-    const remaining = () => AI_TIME_BUDGET_MS - (Date.now() - started);
-    if (remaining() <= 0) break;
-    try {
-      // one quick retry per model, then move on: a busy model usually stays busy for a while
-      const response = await withRetry(
-        () => genAI.models.generateContent({
-          model,
-          contents: prompt,
-          config: { ...config, abortSignal: AbortSignal.timeout(Math.max(1, remaining())) },
-        }),
-        { retries: 1, baseDelay: 500 },
-      );
-
-      const lines = JSON.parse(response.text);
-      if (!Array.isArray(lines)) {
-        throw new Error('Gemini did not return an array');
-      }
-      if (model !== gemini_model) console.log(`AI translation used backup model ${model}`);
-      return lines;
-    } catch (err) {
-      console.error(`Gemini ${model} failed:`, String(err.message).slice(0, 200));
-      lastError = err;
-    }
-  }
-
-  throw lastError ?? new Error('Gemini took too long');
+  return JSON.parse(response.text);
 }
 
 
+// Groq speaks the OpenAI API. strict json_schema makes it return exactly this shape
+// (the top level has to be an object, so the lines go in "lines")
+
+async function callGroq(model, prompt, romanize, signal) {
+  const items = romanize
+    ? {
+        type: 'object',
+        additionalProperties: false,
+        required: ['translation', 'romanized'],
+        properties: { translation: { type: 'string' }, romanized: { type: 'string' } },
+      }
+    : { type: 'string' };
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groq_api_key}` },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      // gpt-oss "thinks" before answering, a little is plenty for lyrics
+      reasoning_effort: 'low',
+      max_tokens: 8000,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'lyrics',
+          strict: true,
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['lines'],
+            properties: { lines: { type: 'array', items } },
+          },
+        },
+      },
+    }),
+  });
+
+  // no retry here: Groq's 429 means a free-tier limit was hit, which won't clear in a second
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(`Groq responded ${response.status}: ${JSON.stringify(data.error ?? data)}`);
+
+  return JSON.parse(data.choices[0].message.content).lines;
+}
+
+
+// using google translate to translate lyrics, one line per row.
+// Google also sends back the original in Latin letters ("src_translit"), used when AI is busy
+
+async function translateTextGoogle(linesArray, target) {
+  const result = await translate(linesArray.join('\n'), { to: target });
+
+  const translit = result.raw?.sentences?.find(s => s.src_translit)?.src_translit?.split('\n');
+
+  return {
+    lines: result.text.split('\n'),
+    romanized: translit?.length === linesArray.length ? translit : null,
+  };
+}
+
 async function translateTextStandard(linesArray, target) {
-
-  // using google translate to translate lyrics, one line per row
-
-  const text = await translate(linesArray.join('\n'), { to: target });
-
-  return text.text.split('\n');
+  return (await translateTextGoogle(linesArray, target)).lines;
 }
 
 
@@ -215,7 +294,7 @@ app.post('/lyrics/lrc_synced_translate', async (req, res) => {
 
 
     // use AI or google translate based on user selection.
-    // AI also romanizes lyrics written in another script (Devanagari, Hangul...), Google Translate can't
+    // AI also romanizes lyrics written in another script (Devanagari, Hangul...)
 
     let translator = isStandard ? 'standard' : 'advanced';
     let translated;
@@ -224,24 +303,30 @@ app.post('/lyrics/lrc_synced_translate', async (req, res) => {
     if (isStandard) {
       translated = await translateLines(lyric_arr, (arr) => translateTextStandard(arr, language));
     } else {
-      try {
-        const romanize = lyric_arr.some(needsRomanization);
-        const results = await translateLines(lyric_arr, (arr) => translateTextAdvanced(arr, language, romanize));
+      const romanize = lyric_arr.some(needsRomanization);
+      let results;
 
-        if (romanize) {
-          // results hold { translation, romanized } for lyric lines, and the original string
-          // for empty lines (or a line Gemini dropped)
-          translated = results.map((r, i) => (typeof r === 'string' ? r : r.translation || lyric_arr[i]));
-          romanized = results.map((r, i) =>
-            typeof r === 'string' || !needsRomanization(lyric_arr[i]) ? '' : String(r.romanized ?? '').replace(/\s+/g, ' ').trim());
-        } else {
-          translated = results;
-        }
+      try {
+        results = await translateLines(lyric_arr, (arr) => translateTextAdvanced(arr, language, romanize));
       } catch (err) {
-        // Gemini still busy after retries, Google Translate is better than nothing
+        // every AI model was busy, Google Translate is better than nothing (and can romanize too)
         console.error('AI translation failed, using standard instead:', err.message);
         translator = 'standard';
-        translated = await translateLines(lyric_arr, (arr) => translateTextStandard(arr, language));
+        results = await translateLines(lyric_arr, async (arr) => {
+          const { lines, romanized: translit } = await translateTextGoogle(arr, language);
+          return romanize ? lines.map((translation, i) => ({ translation, romanized: translit?.[i] ?? '' })) : lines;
+        });
+      }
+
+      if (romanize) {
+        // results hold { translation, romanized } for lyric lines, and the original string
+        // for empty lines (or a line the translator dropped)
+        translated = results.map((r, i) => (typeof r === 'string' ? r : r.translation || lyric_arr[i]));
+        romanized = results.map((r, i) =>
+          typeof r === 'string' || !needsRomanization(lyric_arr[i]) || needsRomanization(String(r.romanized ?? ''))
+            ? '' : String(r.romanized).replace(/\s+/g, ' ').trim());
+      } else {
+        translated = results;
       }
     }
 
