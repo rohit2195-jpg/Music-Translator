@@ -19,11 +19,11 @@ I appreciate all the feedback.
 
     b. **AI:** Google Gemini, for more natural and nuanced translations, like romanized text or more complex languages. If Gemini is busy, it falls back to Google Translate and the iPod tells you.
 
-    With AI, lyrics written in another script (Hindi in Devanagari, Korean, Japanese...) also get a romanized line between the original and the translation, so you can sing along and learn the words. Lyrics already in Latin letters (like Hinglish) are left as they are.
+    With AI, lyrics written in another script (Hindi in Devanagari, Korean, Japanese...) also get a romanized line between the original and the translation, so you can sing along and learn the words. Lyrics already in Latin letters (like Hinglish) are left as they are. Turn it off with **Romanized** in the menu. When the main Gemini model is busy, the backend tries backup Gemini models (`GEMINI_BACKUP_MODELS`) before falling back to Google Translate, and the iPod asks the AI again 20 seconds later.
 
 ### The iPod
  - Spin the click wheel (drag around the ring, scroll, or use the arrow keys) to move through menus. On the Now Playing screen it changes the volume.
- - **MENU** opens the settings: lyrics on/off, translation on/off, language (13 options), translator (Standard / AI), other lyric versions, iPod color, and the clicker sound.
+ - **MENU** opens the settings: lyrics on/off, translation on/off, language (13 options), translator (Standard / AI), romanized on/off, other lyric versions, iPod color, and the clicker sound.
  - The **center button** switches between lyrics and the album art view.
  - Keyboard: ←/→ previous/next, Space play/pause, Enter select, Esc menu.
 
@@ -61,6 +61,7 @@ The desktop app (Electron) loads the deployed website, so it picks up updates wi
     SPOTIFY_CLIENT_SECRET=...
     GEMINI_API_KEY=...        # from Google AI Studio
     # GEMINI_MODEL=...        # optional, overrides the default Gemini model
+    # GEMINI_BACKUP_MODELS=... # optional, comma-separated models to try when GEMINI_MODEL is busy
     ```
 
 3. Backend: `cd backend && npm install && REDIRECT_URI=http://127.0.0.1:3000/auth/callback FRONTEND_URL=http://127.0.0.1:5173 npm start`

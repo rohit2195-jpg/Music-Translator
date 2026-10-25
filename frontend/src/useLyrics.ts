@@ -15,16 +15,19 @@ interface Options {
   translate: boolean;
   language: string;
   isStandard: boolean;
+  romanize: boolean;
 }
 
-export function useLyrics(track: PlayerTrack | null, { enabled, translate, language, isStandard }: Options) {
+export function useLyrics(track: PlayerTrack | null, { enabled, translate, language, isStandard, romanize }: Options) {
   const [candidates, setCandidates] = useState<{ trackId: string; lrcs: string[] } | null>(null);
   const [failedTrack, setFailedTrack] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const [translations, setTranslations] = useState<Record<string, Translation | null>>({});
   const [fellBack, setFellBack] = useState<Record<string, boolean>>({});
   const [reloadKey, setReloadKey] = useState(0);
+  const [aiRetryKey, setAiRetryKey] = useState(0);
   const requested = useRef(new Set<string>());
+  const aiRetried = useRef(new Set<string>());
 
   const trackId = track?.id ?? '';
 
@@ -69,26 +72,40 @@ export function useLyrics(track: PlayerTrack | null, { enabled, translate, langu
   const translationKey = `${trackId}|${index}|${language}|${isStandard ? 'standard' : 'advanced'}`;
 
 
+  // the romanized lines come with the AI translation, so fetch it for either one
+  const wanted = translate || (romanize && !isStandard);
+
+
   // translate the chosen lyrics, cached so switching back and forth is instant
 
   useEffect(() => {
-    if (!enabled || !translate || !lrc || requested.current.has(translationKey)) return;
+    if (!enabled || !wanted || !lrc || requested.current.has(translationKey)) return;
     requested.current.add(translationKey);
 
     postJson('/lyrics/lrc_synced_translate', { lyrics: lrc, language, isStandard })
       .then(response => (response.ok ? response.json() : Promise.reject(new Error('translate failed'))))
       .then(json => {
         setTranslations(prev => ({ ...prev, [translationKey]: { lyrics: json.lyrics, romanized: json.romanized ?? null } }));
-        // AI was busy, so the backend used Google Translate instead
-        if (!isStandard && json.translator === 'standard') setFellBack(prev => ({ ...prev, [translationKey]: true }));
+        // AI was busy, so the backend used Google Translate instead. keep that for now and
+        // ask the AI once more in a bit, the busy spells usually pass quickly
+        const usedGoogle = !isStandard && json.translator === 'standard';
+        setFellBack(prev => ({ ...prev, [translationKey]: usedGoogle }));
+        if (usedGoogle && !aiRetried.current.has(translationKey)) {
+          aiRetried.current.add(translationKey);
+          setTimeout(() => {
+            requested.current.delete(translationKey);
+            setAiRetryKey(k => k + 1);
+          }, 20000);
+        }
       })
       .catch(() => {
         requested.current.delete(translationKey);
-        setTranslations(prev => ({ ...prev, [translationKey]: null }));
+        // a failed AI retry keeps the Google translation already on screen
+        setTranslations(prev => (prev[translationKey] ? prev : { ...prev, [translationKey]: null }));
       });
-  }, [enabled, translate, lrc, translationKey, language, isStandard]);
+  }, [enabled, wanted, lrc, translationKey, language, isStandard, aiRetryKey]);
 
-  const translation = translate ? translations[translationKey] : undefined;
+  const translation = wanted ? translations[translationKey] : undefined;
   const lines = useMemo(
     () => (lrc ? parseLrc(lrc, translation?.lyrics, translation?.romanized) : []),
     [lrc, translation],
@@ -103,9 +120,9 @@ export function useLyrics(track: PlayerTrack | null, { enabled, translate, langu
   return {
     status,
     lines,
-    translating: translate && !!lrc && translation === undefined,
-    translationFailed: translate && translation === null,
-    translationFellBack: translate && !!fellBack[translationKey],
+    translating: wanted && !!lrc && translation === undefined,
+    translationFailed: wanted && translation === null,
+    translationFellBack: wanted && !!fellBack[translationKey],
     candidateIndex: index,
     candidateCount: current?.length ?? 0,
     nextCandidate: () => setIndex(i => (current?.length ? (i + 1) % current.length : 0)),

@@ -21,6 +21,7 @@ function IpodPlayer({ player, onSignOut, onClose }: IpodPlayerProps) {
   const [translationOn, setTranslationOn] = useStoredState('ipod_translation', true);
   const [language, setLanguage] = useStoredState('ipod_language', 'en');
   const [isStandard, setIsStandard] = useStoredState('ipod_standard', true);
+  const [romanizedOn, setRomanizedOn] = useStoredState('ipod_romanized', true);
 
   const [stack, setStack] = useState<{ id: MenuId; selected: number }[]>([]);
   const [infoView, setInfoView] = useState(false);
@@ -28,7 +29,7 @@ function IpodPlayer({ player, onSignOut, onClose }: IpodPlayerProps) {
   const volumeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(volumeTimer.current), []);
 
-  const lyrics = useLyrics(player.track, { enabled: lyricsOn, translate: translationOn, language, isStandard });
+  const lyrics = useLyrics(player.track, { enabled: lyricsOn, translate: translationOn, language, isStandard, romanize: romanizedOn });
   const languageLabel = LANGUAGES.find(l => l.code === language)?.label ?? language;
 
 
@@ -49,6 +50,15 @@ function IpodPlayer({ player, onSignOut, onClose }: IpodPlayerProps) {
           action: () => openMenu('language', Math.max(0, LANGUAGES.findIndex(l => l.code === language))),
         },
         { label: 'Translator', detail: isStandard ? 'Standard' : 'AI', action: () => setIsStandard(v => !v) },
+        {
+          // only the AI translator can romanize, so choosing this on Standard switches to AI
+          label: 'Romanized',
+          detail: isStandard ? 'AI only' : romanizedOn ? 'On' : 'Off',
+          action: () => {
+            if (isStandard) { setIsStandard(false); setRomanizedOn(true); }
+            else setRomanizedOn(v => !v);
+          },
+        },
         {
           label: lyrics.status === 'error' ? 'Retry Lyrics' : 'Other Lyrics',
           detail: lyrics.candidateCount ? `${lyrics.candidateIndex + 1}/${lyrics.candidateCount}` : '–',
@@ -151,7 +161,7 @@ function IpodPlayer({ player, onSignOut, onClose }: IpodPlayerProps) {
     } else if (lyrics.status === 'loading') {
       body = <Message icon="♪" title={player.track.name}>Finding lyrics…</Message>;
     } else {
-      const badge = lyrics.translating ? `Translating to ${languageLabel}…`
+      const badge = lyrics.translating ? (translationOn ? `Translating to ${languageLabel}…` : 'Romanizing…')
         : lyrics.translationFailed ? 'Translation failed'
         : lyrics.translationFellBack ? 'AI busy · used Google' : undefined;
       body = (
@@ -159,6 +169,7 @@ function IpodPlayer({ player, onSignOut, onClose }: IpodPlayerProps) {
           lines={lyrics.lines}
           active={activeLineIndex(lyrics.lines, player.position)}
           showTranslation={translationOn}
+          showRomanized={romanizedOn && !isStandard}
           badge={badge}
           footer={footer}
         />

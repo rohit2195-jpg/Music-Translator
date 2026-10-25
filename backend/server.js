@@ -26,6 +26,14 @@ const spotify_client_secret = process.env.SPOTIFY_CLIENT_SECRET;
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const gemini_model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
+// each Gemini model has its own capacity, so when the main one is busy (503 "high demand")
+// another one usually isn't. tried in order before giving up on AI
+const gemini_backup_models = (process.env.GEMINI_BACKUP_MODELS || 'gemini-3.5-flash-lite,gemini-flash-lite-latest')
+  .split(',').map(m => m.trim()).filter(m => m && m !== gemini_model);
+
+// AI gets this long in total, leaving time for Google Translate within the 25s Lambda timeout
+const AI_TIME_BUDGET_MS = 15000;
+
 // local: http://127.0.0.1:3000/auth/callback and http://127.0.0.1:5173
 // (Spotify no longer accepts "localhost" redirect URIs, use 127.0.0.1)
 const redirect_uri = process.env.REDIRECT_URI || "https://music-translator.onrender.com/auth/callback";
@@ -125,21 +133,41 @@ async function translateTextAdvanced(linesArray, target, romanize = false) {
       }
     : { type: Type.STRING };
 
-  const response = await withRetry(() => genAI.models.generateContent({
-    model: gemini_model,
-    contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: { type: Type.ARRAY, items },
-    },
-  }), { retries: 2, baseDelay: 1000 });
+  const config = {
+    responseMimeType: 'application/json',
+    responseSchema: { type: Type.ARRAY, items },
+  };
 
-  const lines = JSON.parse(response.text);
-  if (!Array.isArray(lines)) {
-    throw new Error('Gemini did not return an array');
+  const started = Date.now();
+  let lastError;
+
+  for (const model of [gemini_model, ...gemini_backup_models]) {
+    const remaining = () => AI_TIME_BUDGET_MS - (Date.now() - started);
+    if (remaining() <= 0) break;
+    try {
+      // one quick retry per model, then move on: a busy model usually stays busy for a while
+      const response = await withRetry(
+        () => genAI.models.generateContent({
+          model,
+          contents: prompt,
+          config: { ...config, abortSignal: AbortSignal.timeout(Math.max(1, remaining())) },
+        }),
+        { retries: 1, baseDelay: 500 },
+      );
+
+      const lines = JSON.parse(response.text);
+      if (!Array.isArray(lines)) {
+        throw new Error('Gemini did not return an array');
+      }
+      if (model !== gemini_model) console.log(`AI translation used backup model ${model}`);
+      return lines;
+    } catch (err) {
+      console.error(`Gemini ${model} failed:`, String(err.message).slice(0, 200));
+      lastError = err;
+    }
   }
 
-  return lines;
+  throw lastError ?? new Error('Gemini took too long');
 }
 
 
