@@ -1,11 +1,67 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 32px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
   text-align: center;
 }
 
-.container {
-  background-color: rgb(255, 255, 255);
-  font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+.page__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.page__subtitle {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--page-muted);
+}
+
+@media (min-height: 820px) and (min-width: 500px) {
+  .page .ipod {
+    zoom: 1.2;
+  }
+}
+
+.page__footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+}
+
+.page__footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.page__card {
+  max-width: 520px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  background: var(--card-bg);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--page-muted);
+  text-align: left;
+}
+
+.page__card p {
+  margin: 0 0 10px;
+}
+
+.page__card p:last-child {
+  margin: 0;
+}
+
+.page__hint {
+  font-size: 12px;
+  color: var(--page-muted);
 }

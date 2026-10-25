@@ -1,9 +1,9 @@
-import express, { response } from 'express';
+import express from 'express';
 import cors from 'cors';
-import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import he from 'he';
-import { GoogleGenAI } from '@google/genai';
+import crypto from 'crypto';
+import { GoogleGenAI, Type } from '@google/genai';
 import { translate } from '@vitalets/google-translate-api';
 
 
@@ -13,88 +13,119 @@ dotenv.config();
 
 
 const app = express();
-app.use(express.json());
-
-
-
-
-const port = 3000;
-
-var spotify_client_id = process.env.SPOTIFY_CLIENT_ID
-var spotify_client_secret = process.env.SPOTIFY_CLIENT_SECRET
-
-const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY)
-
-
-let access_token = null;
-
-const redirect_uri = "https://music-translator.onrender.com/auth/callback"
-
-// http://127.0.0.1:3000/auth/callback
-// https://music-translator.onrender.com/auth/callback
-
+app.use(express.json({ limit: '1mb' }));
 app.use(cors());
-//app.use(express.json());
 
+
+
+const port = process.env.PORT || 3000;
+
+const spotify_client_id = process.env.SPOTIFY_CLIENT_ID;
+const spotify_client_secret = process.env.SPOTIFY_CLIENT_SECRET;
+
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const gemini_model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+
+// local: http://127.0.0.1:3000/auth/callback and http://127.0.0.1:5173
+// (Spotify no longer accepts "localhost" redirect URIs, use 127.0.0.1)
+const redirect_uri = process.env.REDIRECT_URI || "https://music-translator.onrender.com/auth/callback";
+const frontend_url = process.env.FRONTEND_URL || "https://dukz8h8o1lsds.cloudfront.net";
+
+const LRCLIB_HEADERS = {
+  'User-Agent': 'Music-Translator (https://github.com/rohit2195-jpg/Music-Translator)'
+};
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const isBusyStatus = (status) => status === 429 || status >= 500;
+
+
+// LRCLIB and Gemini both return "busy" errors (429 / 503) now and then, so retry those a few times
+
+async function withRetry(fn, { retries = 3, baseDelay = 500 } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const status = err.status ?? 0;
+      const retryable = status === 0 || isBusyStatus(status);
+      if (!retryable || attempt >= retries) throw err;
+      await sleep(baseDelay * 2 ** attempt);
+    }
+  }
+}
+
+
+
+// translating only the non-empty lines, then putting them back in place,
+// so empty lines (instrumental breaks) never shift the timestamps
+
+async function translateLines(linesArray, translateFn) {
+  const indexes = [];
+  const toTranslate = [];
+  linesArray.forEach((line, i) => {
+    if (line.trim() !== '') {
+      indexes.push(i);
+      toTranslate.push(line);
+    }
+  });
+
+  const result = [...linesArray];
+  if (toTranslate.length === 0) return result;
+
+  const translated = await translateFn(toTranslate);
+
+  indexes.forEach((original_index, i) => {
+    // fall back to the original line if the translator dropped one
+    result[original_index] = translated[i] ?? linesArray[original_index];
+  });
+
+  return result;
+}
 
 
 async function translateTextAdvanced(linesArray, target) {
 
-  // combining lyrics array into one large string
-
-  let fullstr = "";
-  for (var i = 0 ; i < linesArray.length; i++) {
-    fullstr += linesArray[i] + "\n";
-  }
-
   const prompt = `
     You are a professional song lyrics translator.
 
-    Translate the following song lyrics into ${target}.
+    Translate each of the following song lyric lines into the language with code "${target}".
     Preserve meaning, emotion, and artistic intent over literal word-for-word translation.
-    Use natural, fluent ${target} that sounds appropriate for song lyrics.
-    If a line is empty, output an empty line in the same position.
-    The number of output lines MUST exactly match the number of input lines.
+    Use natural, fluent language that sounds appropriate for song lyrics.
+    Return a JSON array of strings with exactly ${linesArray.length} items, one translated line per input line, in the same order.
 
-    Lyrics:
-    ${fullstr}
+    Lines:
+    ${JSON.stringify(linesArray)}
   `;
 
-  const response = await genAI.models.generateContent({
-    model: 'gemini-2.5-flash', 
+  const response = await withRetry(() => genAI.models.generateContent({
+    model: gemini_model,
     contents: prompt,
-    });
-  const text = response.text;
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+      },
+    },
+  }), { retries: 2, baseDelay: 1000 });
 
-  // creating the initial array by splitting by newlines
+  const lines = JSON.parse(response.text);
+  if (!Array.isArray(lines)) {
+    throw new Error('Gemini did not return an array');
+  }
 
-  const lines = text.split("\n");
-
-
-  return lines
-  
-
-
+  return lines;
 }
 
 
 async function translateTextStandard(linesArray, target) {
-  let fullstr = "";
-  for (var i = 0 ; i < linesArray.length; i++) {
-    fullstr += linesArray[i] + "\n";
-  }
 
-  // using google translate API to translate lyrics
+  // using google translate to translate lyrics, one line per row
 
-  const text = await translate(fullstr, {to:target});
+  const text = await translate(linesArray.join('\n'), { to: target });
 
-  // console.log("text translated", text);
-
-  const lines = text.text.split('\n');
-
-
-  return lines;
-
+  return text.text.split('\n');
 }
 
 
@@ -102,24 +133,23 @@ app.get('/', (req, res) => {
   res.send('Hello World! This is the Node.js backend hello there.');
 });
 
-function normalize(str) {
-  return str
-    .replace(/[’‘]/g, "'")
-    .trim();
-}
 
 app.post('/lyrics/lrc_synced_translate', async (req, res) => {
   try {
-    //console.log("Fetching translated lyrics from backend");
+    const { lyrics, language, isStandard } = req.body;
 
-    const lines = req.body.lyrics.split("\n");
+    if (typeof lyrics !== 'string' || !language) {
+      return res.status(400).json({ error: 'lyrics and language are required' });
+    }
+
+    const lines = lyrics.split("\n");
 
     const lyric_arr = [];
     const timestamp_arr = [];
 
 
     // extracting the time stamp and subsequent lyrics from the array
-    // assuming format of [00:00 - 01:00] Lyrics here
+    // assuming format of [mm:ss.xx] Lyrics here
 
     for (const line of lines) {
       const match = line.match(/^\[([^\]]+)\]\s*(.*)$/);
@@ -133,25 +163,30 @@ app.post('/lyrics/lrc_synced_translate', async (req, res) => {
 
     // use AI or google translate based on user selection
 
-    var translated = '';
+    let translator = isStandard ? 'standard' : 'advanced';
+    let translated;
 
-    if (req.body.isStandard) {
-      translated = await translateTextStandard(lyric_arr, req.body.language);
-    }
-    else {
-      translated = await translateTextAdvanced(lyric_arr, req.body.language);
+    if (isStandard) {
+      translated = await translateLines(lyric_arr, (arr) => translateTextStandard(arr, language));
+    } else {
+      try {
+        translated = await translateLines(lyric_arr, (arr) => translateTextAdvanced(arr, language));
+      } catch (err) {
+        // Gemini still busy after retries, Google Translate is better than nothing
+        console.error('AI translation failed, using standard instead:', err.message);
+        translator = 'standard';
+        translated = await translateLines(lyric_arr, (arr) => translateTextStandard(arr, language));
+      }
     }
 
-    
+
     // using decode to clean translated text
-    const cleaned = translated.map(line => he.decode(line));
-
-    const combined = cleaned.map((line, i) => {
-      return `${timestamp_arr[i]} ${line}`;
+    const combined = timestamp_arr.map((timestamp, i) => {
+      return `${timestamp} ${he.decode(translated[i] ?? '')}`;
     });
 
 
-    res.json({ lyrics: combined.join("\n") });;
+    res.json({ lyrics: combined.join("\n"), translator });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Translation failed' });
@@ -160,124 +195,203 @@ app.post('/lyrics/lrc_synced_translate', async (req, res) => {
 
 
 
+// throws when LRCLIB is down / busy, so that isn't mistaken for "this song has no lyrics"
+
+async function searchLrclib(params) {
+  const url = new URL("https://lrclib.net/api/search");
+  for (const [key, value] of Object.entries(params)) {
+    if (value) url.searchParams.append(key, value);
+  }
+
+  return withRetry(async () => {
+    const response = await fetch(url, { headers: LRCLIB_HEADERS, signal: AbortSignal.timeout(8000) });
+    if (!response.ok) {
+      const err = new Error(`LRCLIB responded ${response.status}`);
+      err.status = response.status;
+      throw err;
+    }
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  });
+}
+
+
+// "Song - Remastered 2011", "Song (feat. X)", "Song (From "Movie")" -> "Song"
+function cleanTitle(name) {
+  return name
+    .replace(/\s+-\s+.*$/, '')
+    .replace(/\s*[([][^)\]]*(feat\.?|ft\.|with |from |remaster|version|live|edit|mix)[^)\]]*[)\]]/gi, '')
+    .trim();
+}
+
+
+// recent lookups, so replaying / skipping back doesn't hit LRCLIB again
+const lyrics_cache = new Map();
+const LYRICS_CACHE_SIZE = 500;
+
+function cacheLyrics(key, value) {
+  lyrics_cache.delete(key);
+  lyrics_cache.set(key, value);
+  if (lyrics_cache.size > LYRICS_CACHE_SIZE) {
+    lyrics_cache.delete(lyrics_cache.keys().next().value);
+  }
+}
+
 
 app.post('/lyrics/lrc_synced_native', async (req, res) => {
-  console.log("lyrics of the song are being fetched!")
+  const { name, artists, duration_ms } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: 'Track name is required' });
+  }
+
+  const artist_name = artists?.[0]?.name;
+  const duration_sec = Math.round((duration_ms || 0) / 1000);
+  const cache_key = `${name}|${artist_name}|${duration_sec}`;
+
+  if (lyrics_cache.has(cache_key)) {
+    return res.json(lyrics_cache.get(cache_key));
+  }
 
   try {
-    // Using search command, to get array of possible options
+    // searching by track + main artist first, then the title without "- Remastered" / "(feat. ...)",
+    // then a looser free text search (album names often differ between Spotify and LRCLIB, so they are not used)
 
-    const duration_sec = Math.floor(req.body.duration_ms / 1000);
-    const url1 = new URL("https://lrclib.net/api/search");
+    const hasSynced = (results) => results.some(c => c.syncedLyrics);
+    const clean = cleanTitle(name);
 
-
-    url1.searchParams.append("track_name", req.body.name);
-    url1.searchParams.append("album_name", req.body.album.name);
-    if (req.body.artists.length == 1) {
-      url1.searchParams.append("artist_name", req.body.artists[0].name);
+    let data = await searchLrclib({ track_name: name, artist_name });
+    if (!hasSynced(data) && clean && clean !== name) {
+      data = await searchLrclib({ track_name: clean, artist_name });
     }
-
-    const response = await fetch(url1.toString());
-    const data = await response.json();
-
-
-
-    // implement a better scoring system here for all possible lyrics using maybe artist name and duration
-    // or allow user to pikc from the options
-
-    const candidates = [...data].sort((a, b) => {
-      const goodA =
-        a.syncedLyrics && Math.abs(a.duration - duration_sec) <= 2;
-      const goodB =
-        b.syncedLyrics && Math.abs(b.duration - duration_sec) <= 2;
-
-      return Number(goodB) - Number(goodA);
-    });
-
-
-  // returning an array full of options, so that the user can easily change lyrics if they are incorrect   
-    var syncedLyrics_arr = []
-    var plainLyrics_arr = []
-    for (var i = 0 ; i < candidates.length; i++) {
-      if (candidates[i].syncedLyrics != null && candidates[i].plainLyrics != null) {
-        syncedLyrics_arr.push(candidates[i].syncedLyrics)
-        plainLyrics_arr.push(candidates[i].plainLyrics)
-      }
-
+    if (!hasSynced(data)) {
+      data = await searchLrclib({ q: `${clean || name} ${artist_name || ''}`.trim() });
     }
 
 
-    if (candidates.length > 0) {
-      return res.json({
-        lyrics: syncedLyrics_arr,
-        plainLyrics: plainLyrics_arr
-      });
+    // closest duration first, so the most likely match is shown by default.
+    // the rest are kept so the user can easily change lyrics if they are incorrect
+
+    const candidates = data
+      .filter(c => c.syncedLyrics)
+      .sort((a, b) =>
+        Math.abs(a.duration - duration_sec) - Math.abs(b.duration - duration_sec)
+      );
+
+
+    console.log(`lyrics: "${name}" by ${artist_name} -> ${candidates.length} synced`);
+
+    const result = {
+      lyrics: candidates.map(c => c.syncedLyrics),
+      plainLyrics: candidates.map(c => c.plainLyrics ?? '')
+    };
+    cacheLyrics(cache_key, result);
+
+    if (candidates.length === 0) {
+      return res.status(404).json({ error: "No synced lyrics found", ...result });
     }
+    return res.json(result);
 
-  
-    
-    return res.status(500).json({ error: "Failed to fetch lyrics" });
-
-    
   } catch (error) {
-    console.error("An error occurred:", error);
-    return res.status(500).json({ error: "Failed to fetch lyrics" });
+    // LRCLIB busy / unreachable: tell the frontend to try again rather than "no lyrics"
+    console.error(`lyrics: "${name}" by ${artist_name} -> lookup failed:`, error.message);
+    return res.status(503).json({ error: "Lyrics service is busy, try again", retryable: true, lyrics: [], plainLyrics: [] });
   }
 });
 
 
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}/`);
-});
+async function requestSpotifyToken(params) {
+  const response = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Basic ' + Buffer.from(`${spotify_client_id}:${spotify_client_secret}`).toString('base64'),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams(params).toString()
+  });
+
+  const data = await response.json().catch(() => ({}));
+  return { ok: response.ok, status: response.status, data };
+}
 
 
-app.get("/auth/token", (req, res) => {
-  if (!access_token) {
-    return res.status(401).json({ error: "Not authenticated" });
-  }
-  res.json({ access_token });
+// login state is signed instead of stored, so the callback can't be forged even when it lands on a
+// different server instance than /auth/login did (Lambda runs many short-lived copies)
+
+const STATE_TTL_MS = 10 * 60 * 1000;
+
+const signState = (payload) =>
+  crypto.createHmac('sha256', spotify_client_secret).update(payload).digest('hex');
+
+function createState() {
+  const payload = `${Date.now() + STATE_TTL_MS}.${crypto.randomBytes(16).toString('hex')}`;
+  return `${payload}.${signState(payload)}`;
+}
+
+function isValidState(state) {
+  const [expires, nonce, signature] = String(state ?? '').split('.');
+  if (!expires || !nonce || !signature) return false;
+
+  const expected = Buffer.from(signState(`${expires}.${nonce}`));
+  const actual = Buffer.from(signature);
+  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected) && Number(expires) > Date.now();
+}
+
+
+app.get('/auth/login', (req, res) => {
+
+  const scope = "streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state";
+
+  const state = createState();
+
+  const auth_query_parameters = new URLSearchParams({
+    response_type: "code",
+    client_id: spotify_client_id,
+    scope: scope,
+    redirect_uri: redirect_uri,
+    state: state
+  });
+
+  res.redirect('https://accounts.spotify.com/authorize?' + auth_query_parameters.toString());
 });
+
 
 app.get('/auth/callback', async (req, res) => {
-  const code = req.query.code;
+  const { code, state, error } = req.query;
+
+  if (error) {
+    return res.redirect(`${frontend_url}/#error=${encodeURIComponent(error)}`);
+  }
 
   if (!code) {
     return res.status(400).send('No code provided');
   }
 
-  try {
-    const params = new URLSearchParams();
-    params.append('code', code);
-    params.append('redirect_uri', redirect_uri);
-    params.append('grant_type', 'authorization_code');
+  if (!isValidState(state)) {
+    return res.status(400).send('Invalid or expired login state, please try logging in again');
+  }
 
-    const response = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Basic ' + Buffer.from(`${spotify_client_id}:${spotify_client_secret}`).toString('base64'),
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params.toString()
+  try {
+    const { ok, status, data } = await requestSpotifyToken({
+      code,
+      redirect_uri,
+      grant_type: 'authorization_code',
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      console.error('Spotify token error:', text);
-      return res.status(response.status).send(text);
+    if (!ok) {
+      console.error('Spotify token error:', data);
+      return res.status(status).send(data.error_description || 'Spotify login failed');
     }
 
-    const data = await response.json();
-    access_token = data.access_token;
-    const refresh_token = data.refresh_token;
 
-    console.log('Access token:', access_token);
-    console.log('Refresh token:', refresh_token);
+    // tokens go back to this user's browser only (in the hash, so they never hit server logs)
+    const hash = new URLSearchParams({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_in: String(data.expires_in),
+    });
 
-    // this line
-    // http://127.0.0.1:5174
-    // https://dukz8h8o1lsds.cloudfront.net
-    res.redirect("https://dukz8h8o1lsds.cloudfront.net");
+    res.redirect(`${frontend_url}/#${hash.toString()}`);
 
   } catch (error) {
     console.error('Error fetching Spotify token:', error);
@@ -286,32 +400,43 @@ app.get('/auth/callback', async (req, res) => {
 });
 
 
-
-
-var generateRandomString = function(length) {
-  var text = '';
-  var possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (var i = 0 ; i < length; i++ ) {
-    text += possible.charAt(Math.floor(Math.random()*possible.length));
+app.post('/auth/refresh', async (req, res) => {
+  const refresh_token = req.body?.refresh_token;
+  if (!refresh_token) {
+    return res.status(400).json({ error: 'refresh_token is required' });
   }
-  return text;
+
+  try {
+    const { ok, status, data } = await requestSpotifyToken({
+      grant_type: 'refresh_token',
+      refresh_token,
+    });
+
+    if (!ok) {
+      console.error('Spotify refresh error:', data);
+      return res.status(status).json({ error: data.error_description || 'Refresh failed' });
+    }
+
+    res.json({
+      access_token: data.access_token,
+      // Spotify may rotate the refresh token, otherwise keep the old one
+      refresh_token: data.refresh_token || refresh_token,
+      expires_in: data.expires_in,
+    });
+
+  } catch (error) {
+    console.error('Error refreshing Spotify token:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+
+// on Lambda, lambda.js hands requests to the app instead of it listening on a port
+if (!process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}/`);
+  });
 }
 
-app.get('/auth/login', (req, res) => {
-
-  var scope = "streaming \
-               user-read-email \
-               user-read-private"
-
-  var state = generateRandomString(16);
-
-  var auth_query_parameters = new URLSearchParams({
-    response_type: "code",
-    client_id: spotify_client_id,
-    scope: scope,
-    redirect_uri: redirect_uri,
-    state: state
-  })
-
-  res.redirect('https://accounts.spotify.com/authorize/?' + auth_query_parameters.toString());
-})
+export default app;

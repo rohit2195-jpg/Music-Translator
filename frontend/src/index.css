@@ -1,1 +1,47 @@
+:root {
+  --page-bg: linear-gradient(160deg, #fdf2f8 0%, #eef2ff 50%, #ecfeff 100%);
+  --page-text: #2b2838;
+  --page-muted: #6b6880;
+  --card-bg: rgba(255, 255, 255, 0.7);
+  --link: #6a48c4;
+  color: var(--page-text);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page-bg: linear-gradient(160deg, #1d1a2b 0%, #141826 55%, #0f1d22 100%);
+    --page-text: #ece9f7;
+    --page-muted: #a7a3bd;
+    --card-bg: rgba(255, 255, 255, 0.06);
+    --link: #b9a4ff;
+  }
+}
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--page-bg);
+  background-attachment: fixed;
+}
+
+a {
+  color: var(--link);
+}
+
+/* desktop app: only the iPod is visible, the window itself is transparent */
+html.is-desktop,
+html.is-desktop body {
+  background: transparent;
+  overflow: hidden;
+}
+
+html.is-desktop #root {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

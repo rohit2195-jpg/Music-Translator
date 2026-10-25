@@ -1,0 +1,62 @@
+# Deploys backend/ to the music-translator-backend Lambda on every push to main.
+#
+# No AWS keys are stored in GitHub. Instead GitHub proves "I am a workflow running on
+# rohit2195-jpg/Music-Translator, branch main" with a short-lived OIDC token, and AWS swaps
+# that for temporary credentials of an IAM role that may only update this one function.
+# One-time setup: see "Deploying the backend" in README.md.
+
+name: Deploy backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch: # adds a "Run workflow" button in the Actions tab
+
+permissions:
+  id-token: write # lets the job request the OIDC token AWS checks
+  contents: read  # lets the job check out the code
+
+# a second push while one deploy is running waits instead of racing it
+concurrency: deploy-backend
+
+env:
+  AWS_REGION: us-east-1
+  FUNCTION_NAME: music-translator-backend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # keep in sync with the Lambda's runtime
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # exact versions from package-lock.json, without dev tools
+      - run: npm ci --omit=dev
+
+      # catches syntax errors before they reach AWS
+      - run: node --check server.js && node --check lambda.js
+
+      # only what the function needs; .env and other local files stay out
+      - run: zip -qr function.zip server.js lambda.js package.json node_modules
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - run: aws lambda update-function-code --function-name "$FUNCTION_NAME" --zip-file fileb://function.zip
+
+      # fails the job if Lambda can't apply the new code
+      - run: aws lambda wait function-updated-v2 --function-name "$FUNCTION_NAME"

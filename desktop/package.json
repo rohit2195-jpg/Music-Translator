@@ -1,0 +1,27 @@
+{
+  "name": "music-translator-desktop",
+  "productName": "Music Translator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A tiny floating iPod that shows translated lyrics for whatever Spotify is playing",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.musictranslator.desktop",
+    "mac": {
+      "category": "public.app-category.music",
+      "target": "dmg"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0"
+  }
+}

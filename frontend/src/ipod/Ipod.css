@@ -1,0 +1,525 @@
+/* ---------- body + themes ---------- */
+
+.ipod {
+  --body-top: #fdfdfd;
+  --body-bottom: #e4e4e8;
+  --body-edge: #c9c9cf;
+  --wheel: #f4f4f6;
+  --wheel-edge: #d6d6dc;
+  --wheel-label: #a3a3ad;
+  --center-top: #f7f7f9;
+  --center-bottom: #dcdce1;
+  --bezel: #1b1b1d;
+  --accent: #3d8fe6;
+  --accent-dark: #1f63c4;
+
+  position: relative;
+  width: 300px;
+  height: 500px;
+  flex: none;
+  border-radius: 38px;
+  background: linear-gradient(160deg, var(--body-top), var(--body-bottom));
+  box-shadow:
+    inset 0 0 0 1px var(--body-edge),
+    inset 0 2px 1px rgba(255, 255, 255, 0.9),
+    0 18px 40px rgba(40, 30, 70, 0.22),
+    0 4px 10px rgba(40, 30, 70, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-app-region: drag; /* desktop app: drag the window by the body */
+}
+
+.ipod--black {
+  --body-top: #3a3a3f;
+  --body-bottom: #121214;
+  --body-edge: #000;
+  --wheel: #222225;
+  --wheel-edge: #000;
+  --wheel-label: #c4c4cc;
+  --center-top: #36363b;
+  --center-bottom: #1d1d20;
+  --bezel: #000;
+}
+
+.ipod--pink {
+  --body-top: #ffe3ee;
+  --body-bottom: #f7a9c8;
+  --body-edge: #e98fb4;
+  --wheel: #fff4f8;
+  --wheel-edge: #f2bcd2;
+  --wheel-label: #e0719f;
+  --center-top: #ffeef5;
+  --center-bottom: #f7c6da;
+  --accent: #f06aa3;
+  --accent-dark: #d14482;
+}
+
+.ipod--blue {
+  --body-top: #e3f2ff;
+  --body-bottom: #9fcdf6;
+  --body-edge: #84b9e8;
+  --wheel: #f3f9ff;
+  --wheel-edge: #b9daf5;
+  --wheel-label: #5a9bd6;
+  --center-top: #f2f8ff;
+  --center-bottom: #c7e1f8;
+}
+
+.ipod--mint {
+  --body-top: #e6fbf1;
+  --body-bottom: #a4e5c7;
+  --body-edge: #87d1af;
+  --wheel: #f4fdf8;
+  --wheel-edge: #bfeacf;
+  --wheel-label: #4fb487;
+  --center-top: #f2fcf6;
+  --center-bottom: #c9eedb;
+  --accent: #33b47c;
+  --accent-dark: #1e8c5c;
+}
+
+.ipod--lavender {
+  --body-top: #f1eaff;
+  --body-bottom: #c9b6f5;
+  --body-edge: #b39ee8;
+  --wheel: #f9f6ff;
+  --wheel-edge: #d9ccf5;
+  --wheel-label: #8f72d9;
+  --center-top: #f7f3ff;
+  --center-bottom: #ddd0f7;
+  --accent: #8b6be0;
+  --accent-dark: #6a48c4;
+}
+
+.ipod button {
+  -webkit-app-region: no-drag;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ipod-close {
+  position: absolute;
+  top: 8px;
+  right: 14px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--wheel-label);
+  font-size: 16px !important;
+  line-height: 20px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.ipod:hover .ipod-close {
+  opacity: 1;
+}
+
+
+/* ---------- screen ---------- */
+
+.ipod-screen-bezel {
+  margin-top: 24px;
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--bezel);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.ipod-screen {
+  position: relative;
+  width: 244px;
+  height: 183px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+  color: #111;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+/* soft glass glare */
+.ipod-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 45%);
+  pointer-events: none;
+}
+
+
+/* ---------- click wheel ---------- */
+
+.ipod-wheel {
+  position: relative;
+  margin-top: 46px;
+  width: 196px;
+  height: 196px;
+  border-radius: 50%;
+  background: var(--wheel);
+  box-shadow:
+    inset 0 0 0 1px var(--wheel-edge),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.06),
+    0 1px 0 rgba(255, 255, 255, 0.7);
+  touch-action: none;
+  -webkit-app-region: no-drag;
+}
+
+.ipod-wheel-btn {
+  position: absolute;
+  border: none;
+  background: transparent;
+  color: var(--wheel-label);
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ipod-wheel-btn svg {
+  width: 22px;
+  height: 11px;
+  fill: currentColor;
+}
+
+.ipod-wheel-btn:active {
+  filter: brightness(0.8);
+}
+
+.ipod-wheel-btn--menu {
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.ipod-wheel-btn--prev { left: 6px; top: 50%; transform: translateY(-50%); }
+.ipod-wheel-btn--next { right: 6px; top: 50%; transform: translateY(-50%); }
+.ipod-wheel-btn--play { bottom: 6px; left: 50%; transform: translateX(-50%); }
+
+.ipod-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 72px;
+  height: 72px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(180deg, var(--center-top), var(--center-bottom));
+  box-shadow:
+    inset 0 0 0 1px var(--wheel-edge),
+    0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.ipod-center:active {
+  background: linear-gradient(0deg, var(--center-top), var(--center-bottom));
+}
+
+.ipod button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+
+/* ---------- screen contents ---------- */
+
+.scr-header {
+  flex: none;
+  height: 19px;
+  padding: 0 6px;
+  display: grid;
+  grid-template-columns: 30px 1fr 30px;
+  align-items: center;
+  background: linear-gradient(180deg, #fbfbfd, #d5d8de);
+  border-bottom: 1px solid #a9adb5;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.scr-header__title {
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scr-header__state {
+  font-size: 8px;
+  color: #333;
+}
+
+.scr-battery {
+  justify-self: end;
+  width: 20px;
+  height: 9px;
+  border: 1px solid #555;
+  border-radius: 2px;
+  padding: 1px;
+  position: relative;
+}
+
+.scr-battery::before {
+  content: "";
+  display: block;
+  height: 100%;
+  width: 80%;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #8fe07a, #3ea52a);
+}
+
+.scr-battery::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: 2px;
+  width: 2px;
+  height: 3px;
+  background: #555;
+  border-radius: 0 1px 1px 0;
+}
+
+.scr-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+
+/* menus */
+
+.scr-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.scr-menu li {
+  height: 18px;
+  padding: 0 7px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.scr-menu li.is-selected {
+  background: linear-gradient(180deg, var(--accent), var(--accent-dark));
+  color: #fff;
+}
+
+.scr-menu__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scr-menu__detail {
+  font-weight: 400;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.scr-menu__chevron {
+  font-size: 11px;
+}
+
+
+/* message (help / errors / login) */
+
+.scr-message {
+  height: 100%;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #333;
+}
+
+.scr-message__icon {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.scr-message__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
+}
+
+
+/* now playing (lyrics off) */
+
+.scr-np {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.scr-np__main {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 8px 0;
+  display: flex;
+  gap: 9px;
+}
+
+.scr-np__art {
+  width: 92px;
+  height: 92px;
+  flex: none;
+  border-radius: 2px;
+  object-fit: cover;
+  background: linear-gradient(135deg, #ddd, #bbb);
+  -webkit-box-reflect: below 1px linear-gradient(transparent 70%, rgba(255, 255, 255, 0.35));
+}
+
+.scr-np__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  font-size: 11px;
+  color: #444;
+}
+
+.scr-np__name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #111;
+}
+
+.scr-np__text > div {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+
+/* lyrics */
+
+.scr-lyrics {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.scr-lyrics__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 0 9px;
+  -webkit-mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+}
+
+.scr-lyrics__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.scr-lyrics__pad {
+  height: 50px;
+}
+
+.scr-line {
+  padding: 3px 0;
+  color: #9a9ca3;
+  transition: color 0.25s;
+}
+
+.scr-line__text {
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.scr-line__tr {
+  font-size: 10px;
+  line-height: 1.25;
+  margin-top: 1px;
+}
+
+.scr-line.is-active {
+  color: #111;
+}
+
+.scr-line.is-active .scr-line__tr {
+  color: var(--accent-dark);
+}
+
+.scr-badge {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  z-index: 1;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 8.5px;
+}
+
+
+/* progress + volume bar */
+
+.scr-progress {
+  flex: none;
+  padding: 4px 8px 6px;
+}
+
+.scr-bar {
+  height: 7px;
+  border: 1px solid #8e939c;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #f3f3f5, #d7d9de);
+  overflow: hidden;
+}
+
+.scr-bar__fill {
+  height: 100%;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 70%, #fff), var(--accent-dark));
+}
+
+.scr-progress__times {
+  margin-top: 2px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  font-weight: 600;
+  color: #333;
+}
+
+.scr-volume {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  color: #333;
+}
+
+.scr-volume .scr-bar {
+  flex: 1;
+}
