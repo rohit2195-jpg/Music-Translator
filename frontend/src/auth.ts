@@ -1,4 +1,4 @@
-import { API_BASE } from './ApiBase';
+import { postJson } from './ApiBase';
 
 const STORAGE_KEY = 'spotify_auth';
 
@@ -44,11 +44,7 @@ export function loadAuth(): Auth | null {
 }
 
 export async function refreshAuth(auth: Auth): Promise<Auth | null> {
-  const response = await fetch(`${API_BASE}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: auth.refresh_token }),
-  });
+  const response = await postJson('/auth/refresh', { refresh_token: auth.refresh_token });
   if (!response.ok) {
     clearAuth();
     return null;

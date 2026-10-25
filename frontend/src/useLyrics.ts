@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { API_BASE } from './ApiBase';
+import { postJson } from './ApiBase';
 import { parseLrc } from './lrc';
 import type { PlayerTrack } from './player/types';
 
@@ -36,12 +36,11 @@ export function useLyrics(track: PlayerTrack | null, { enabled, translate, langu
       for (let attempt = 0; attempt < 4; attempt++) {
         if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
         try {
-          const response = await fetch(`${API_BASE}/lyrics/lrc_synced_native`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: track!.name, artists: track!.artists, duration_ms: track!.duration_ms }),
-            signal: controller.signal,
-          });
+          const response = await postJson(
+            '/lyrics/lrc_synced_native',
+            { name: track!.name, artists: track!.artists, duration_ms: track!.duration_ms },
+            { signal: controller.signal },
+          );
           if (response.status >= 500) continue;
 
           const json = await response.json();
@@ -71,11 +70,7 @@ export function useLyrics(track: PlayerTrack | null, { enabled, translate, langu
     if (!enabled || !translate || !lrc || requested.current.has(translationKey)) return;
     requested.current.add(translationKey);
 
-    fetch(`${API_BASE}/lyrics/lrc_synced_translate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lyrics: lrc, language, isStandard }),
-    })
+    postJson('/lyrics/lrc_synced_translate', { lyrics: lrc, language, isStandard })
       .then(response => (response.ok ? response.json() : Promise.reject(new Error('translate failed'))))
       .then(json => {
         setTranslations(prev => ({ ...prev, [translationKey]: json.lyrics }));
